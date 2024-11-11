@@ -5,6 +5,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import { CfnGitHubRepository } from 'aws-cdk-lib/aws-codestar';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
+import { SecretValue } from 'aws-cdk-lib';
 
 
 interface RelationalDbStackProps extends cdk.StackProps {
@@ -79,16 +80,22 @@ export class RelationalDbStack extends cdk.Stack {
             },
         });
 
+        const gitHubToken = Secret.fromSecretNameV2(
+            this,
+            'GitHubToken',
+            'github-token',
+        );
+
+        new codebuild.GitHubSourceCredentials(this, 'CodeBuildGitHubCreds', {
+            accessToken: SecretValue.secretsManager(gitHubToken.secretName),
+        });
+        
         // Create the CodeBuild project
         const project = new codebuild.Project(this, 'LiquibaseCodeBuildProject', {
             source: codebuild.Source.gitHub({
                 owner: 'AlexTech314',
                 repo: 'ProjectBase',
-                webhook: true,
-                webhookFilters: [
-                    codebuild.FilterGroup.inEventOf(codebuild.EventAction.PUSH).andBranchIs('main'),
-                ],
-                
+                webhook: true
             }),
             environment: {
                 buildImage: codebuild.LinuxBuildImage.fromDockerRegistry('liquibase/liquibase'),
@@ -110,7 +117,6 @@ export class RelationalDbStack extends cdk.Stack {
             securityGroups: [codebuildSecurityGroup],
             subnetSelection: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
             buildSpec: buildSpec,
-
         });
 
         // Grant CodeBuild permissions to read the database secret
