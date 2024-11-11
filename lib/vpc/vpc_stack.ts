@@ -70,15 +70,6 @@ export class VPCStack extends cdk.Stack {
       });
     });
 
-    // Deny all other inbound traffic
-    privateNacl.addEntry('DenyOtherInbound', {
-      ruleNumber: 200,
-      cidr: ec2.AclCidr.anyIpv4(),
-      traffic: ec2.AclTraffic.allTraffic(),
-      direction: ec2.TrafficDirection.INGRESS,
-      ruleAction: ec2.Action.DENY,
-    });
-
     // Allow outbound traffic to Isolated Subnets
     isolatedSubnetCidrs.forEach((cidr, index) => {
       privateNacl.addEntry(`AllowIsolatedOutbound${index}`, {
