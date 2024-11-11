@@ -17,7 +17,7 @@ interface RelationalDbStackProps extends cdk.StackProps {
     vpc: ec2.Vpc;
 }
 
-export class RelationalDbStack extends cdk.Stack {
+export class RelationalDbStack extends cdk.NestedStack {
     constructor(scope: Construct, id: string, props: RelationalDbStackProps) {
         super(scope, id, props);
 
