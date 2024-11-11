@@ -4,12 +4,8 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
-import { SecretValue } from 'aws-cdk-lib';
-import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { GitHubSourceCredentials, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
-import { CodePipeline } from 'aws-cdk-lib/aws-events-targets';
-import { CodePipelineSource } from 'aws-cdk-lib/pipelines';
-import { CodeBuildAction, CodeStarConnectionsSourceAction, GitHubSourceAction, GitHubTrigger } from 'aws-cdk-lib/aws-codepipeline-actions';
+import { PipelineProject } from 'aws-cdk-lib/aws-codebuild';
+import { CodeBuildAction, GitHubSourceAction, GitHubTrigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Artifact, Pipeline } from 'aws-cdk-lib/aws-codepipeline';
 
 
