@@ -30,7 +30,7 @@ export class RelationalDbStack extends cdk.Stack {
         });
 
         // Create the RDS instance
-        const dbInstance = new rds.DatabaseInstance(this, 'LiquibaseDB', {
+        const dbInstance = new rds.DatabaseInstance(this, 'DBInstance', {
             engine: rds.DatabaseInstanceEngine.mysql({
                 version: rds.MysqlEngineVersion.VER_8_0_39,
             }),
