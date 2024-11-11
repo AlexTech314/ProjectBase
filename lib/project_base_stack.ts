@@ -8,7 +8,7 @@ export class ProjectBaseStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
     const vpcStack = new VPCStack(this, 'VPCStack');
-    const relationalDbStack = new RelationalDbStack(this, 'RelationalDbStack', {
+    new RelationalDbStack(this, 'RelationalDbStack', {
       vpc: vpcStack.vpc
     })
   }

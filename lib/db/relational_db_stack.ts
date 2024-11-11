@@ -3,9 +3,14 @@ import { Construct } from 'constructs';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as codebuild from 'aws-cdk-lib/aws-codebuild';
-import { CfnGitHubRepository } from 'aws-cdk-lib/aws-codestar';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { SecretValue } from 'aws-cdk-lib';
+import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { GitHubSourceCredentials, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
+import { CodePipeline } from 'aws-cdk-lib/aws-events-targets';
+import { CodePipelineSource } from 'aws-cdk-lib/pipelines';
+import { CodeBuildAction, CodeStarConnectionsSourceAction, GitHubSourceAction, GitHubTrigger } from 'aws-cdk-lib/aws-codepipeline-actions';
+import { Artifact, Pipeline } from 'aws-cdk-lib/aws-codepipeline';
 
 
 interface RelationalDbStackProps extends cdk.StackProps {
@@ -80,23 +85,34 @@ export class RelationalDbStack extends cdk.Stack {
             },
         });
 
-        const gitHubToken = Secret.fromSecretNameV2(
-            this,
-            'GitHubToken',
-            'github-token',
+        // Define the pipeline
+        const pipe = new Pipeline(this, 'MyPipeline');
+
+        // Retrieve GitHub token from Secrets Manager
+        const githubToken = Secret.fromSecretNameV2(
+            this, 'GitHubToken', 'github-token'
         );
 
-        new codebuild.GitHubSourceCredentials(this, 'CodeBuildGitHubCreds', {
-            accessToken: SecretValue.secretsManager(gitHubToken.secretName),
+        // Source action for GitHub
+        const sourceOut = new Artifact();
+        const sourceAction = new GitHubSourceAction({
+            actionName: 'GitHub_Source',
+            owner: 'AlexTech314',
+            repo: 'ProjectBase',
+            branch: 'main',  // Replace with the branch you want to use
+            oauthToken: githubToken.secretValue,
+            output: sourceOut,
+            trigger: GitHubTrigger.WEBHOOK,  // Optionally enable webhook for immediate triggers
         });
-        
-        // Create the CodeBuild project
-        const project = new codebuild.Project(this, 'LiquibaseCodeBuildProject', {
-            source: codebuild.Source.gitHub({
-                owner: 'AlexTech314',
-                repo: 'ProjectBase',
-                webhook: true
-            }),
+
+        // Add the source stage to the pipeline
+        pipe.addStage({
+            stageName: 'Source',
+            actions: [sourceAction],
+        });
+
+        // Create the CodeBuild project without a source, as it will receive source code from CodePipeline
+        const project = new PipelineProject(this, 'LiquibaseCodeBuildProject', {
             environment: {
                 buildImage: codebuild.LinuxBuildImage.fromDockerRegistry('liquibase/liquibase'),
             },
@@ -119,7 +135,18 @@ export class RelationalDbStack extends cdk.Stack {
             buildSpec: buildSpec,
         });
 
+        // Add the source stage to the pipeline
+        pipe.addStage({
+            stageName: 'Build',
+            actions: [new CodeBuildAction({
+                actionName: 'Liquibase',
+                project: project,
+                input: sourceOut
+            })],
+        });
+
         // Grant CodeBuild permissions to read the database secret
         dbCredentialsSecret.grantRead(project.role!);
     }
 }
+
