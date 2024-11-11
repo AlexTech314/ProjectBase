@@ -70,6 +70,15 @@ export class VPCStack extends cdk.Stack {
       });
     });
 
+    // Deny all other inbound traffic
+    privateNacl.addEntry('DenyOtherInbound', {
+      ruleNumber: 200,
+      cidr: ec2.AclCidr.anyIpv4(),
+      traffic: ec2.AclTraffic.allTraffic(),
+      direction: ec2.TrafficDirection.INGRESS,
+      ruleAction: ec2.Action.DENY,
+    });
+
     // Allow outbound traffic to Isolated Subnets
     isolatedSubnetCidrs.forEach((cidr, index) => {
       privateNacl.addEntry(`AllowIsolatedOutbound${index}`, {
@@ -81,13 +90,13 @@ export class VPCStack extends cdk.Stack {
       });
     });
 
-    // Deny all other outbound traffic
-    privateNacl.addEntry('DenyOtherOutbound', {
-      ruleNumber: 400,
+    // Allow all outbound traffic from private subnets so CodeBuild can run effectively
+    privateNacl.addEntry('AllowAllOutbound', {
+      ruleNumber: 500,
       cidr: ec2.AclCidr.anyIpv4(),
       traffic: ec2.AclTraffic.allTraffic(),
       direction: ec2.TrafficDirection.EGRESS,
-      ruleAction: ec2.Action.DENY,
+      ruleAction: ec2.Action.ALLOW,
     });
 
     // Configure Isolated Subnet NACL
