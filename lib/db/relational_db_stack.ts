@@ -72,11 +72,11 @@ export class RelationalDbStack extends cdk.NestedStack {
                         'echo Running Liquibase changelog',
                         'liquibase \
                           --classpath=/liquibase/classpath/mysql-connector-java.jar \
-                          --changeLogFile=src/db/changelog.sql \
+                          --changeLogFile=src/db/changeLog.sql \
                           --url="jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}" \
                           --username=${DB_USER} \
                           --password=${DB_PASSWORD} \
-                          --logLevel=TRACE \
+                          --logLevel=FINE \
                           update',
                     ],
                 },
