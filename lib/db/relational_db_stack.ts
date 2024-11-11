@@ -131,6 +131,9 @@ export class RelationalDbStack extends cdk.NestedStack {
             buildSpec: buildSpec,
         });
 
+        // Grant CodeBuild permissions to access the artifact bucket
+        pipe.artifactBucket.grantReadWrite(project.role!);
+
         // Add the source stage to the pipeline
         pipe.addStage({
             stageName: 'Build',
