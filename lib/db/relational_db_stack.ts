@@ -1,0 +1,129 @@
+// liquibase-stack.ts
+
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import * as rds from 'aws-cdk-lib/aws-rds';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as codebuild from 'aws-cdk-lib/aws-codebuild';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+
+interface RelationalDbStackProps extends cdk.StackProps {
+    vpc: ec2.Vpc;
+}
+
+export class RelationalDbStack extends cdk.Stack {
+    constructor(scope: Construct, id: string, props: RelationalDbStackProps) {
+        super(scope, id, props);
+
+        const vpc = props.vpc;
+
+        // Create a security group for the RDS instance
+        const dbSecurityGroup = new ec2.SecurityGroup(this, 'DBSecurityGroup', {
+            vpc,
+            description: 'Allow database access',
+            allowAllOutbound: true,
+        });
+
+        // Create a secret for the RDS credentials
+        const dbCredentialsSecret = new rds.DatabaseSecret(this, 'DBCredentialsSecret', {
+            username: 'admin',
+        });
+
+        // Create the RDS instance
+        const dbInstance = new rds.DatabaseInstance(this, 'LiquibaseDB', {
+            engine: rds.DatabaseInstanceEngine.mysql({
+                version: rds.MysqlEngineVersion.VER_8_0_39,
+            }),
+            instanceType: ec2.InstanceType.of(ec2.InstanceClass.T2, ec2.InstanceSize.MICRO),
+            credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
+            vpc,
+            securityGroups: [dbSecurityGroup],
+            vpcSubnets: {
+                subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+            },
+            databaseName: 'base',
+        });
+
+        // Security group for the CodeBuild project
+        const codebuildSecurityGroup = new ec2.SecurityGroup(this, 'CodeBuildSecurityGroup', {
+            vpc,
+            description: 'Allow CodeBuild access to RDS',
+            allowAllOutbound: true,
+        });
+
+        // Allow CodeBuild to connect to the RDS instance
+        dbInstance.connections.allowDefaultPortFrom(codebuildSecurityGroup);
+
+        // Reference the GitHub token stored in Secrets Manager
+        const gitHubToken = secretsmanager.Secret.fromSecretNameV2(
+            this,
+            'GitHubToken',
+            'github-token',
+        );
+
+        // Set up GitHub source credentials for CodeBuild
+        new codebuild.GitHubSourceCredentials(this, 'GitHubCredentials', {
+            accessToken: gitHubToken.secretValue,
+        });
+
+        // Define the build specification
+        const buildSpec = codebuild.BuildSpec.fromObject({
+            version: '0.2',
+            phases: {
+                install: {
+                    commands: [
+                        'echo Installing MySQL JDBC driver',
+                        'curl -L -o /liquibase/lib/mysql-connector-java.jar https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.28/mysql-connector-java-8.0.28.jar',
+                    ],
+                },
+                build: {
+                    commands: [
+                        'echo Running Liquibase changelog',
+                        'liquibase \\',
+                        '  --driver=com.mysql.cj.jdbc.Driver \\',
+                        '  --changeLogFile=src/db/changelog.sql \\',
+                        '  --url="jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}" \\',
+                        '  --username=${DB_USER} \\',
+                        '  --password=${DB_PASSWORD} \\',
+                        '  update',
+                    ],
+                },
+            },
+        });
+
+        // Create the CodeBuild project
+        const project = new codebuild.Project(this, 'LiquibaseCodeBuildProject', {
+            source: codebuild.Source.gitHub({
+                owner: 'AlexTech314',
+                repo: 'ProjectBase',
+                webhook: true,
+                webhookFilters: [
+                    codebuild.FilterGroup.inEventOf(codebuild.EventAction.PUSH).andBranchIs('main'),
+                ],
+            }),
+            environment: {
+                buildImage: codebuild.LinuxBuildImage.fromDockerRegistry('liquibase/liquibase'),
+            },
+            environmentVariables: {
+                DB_HOST: { value: dbInstance.dbInstanceEndpointAddress },
+                DB_PORT: { value: dbInstance.dbInstanceEndpointPort },
+                DB_NAME: { value: 'base' },
+                DB_USER: {
+                    type: codebuild.BuildEnvironmentVariableType.SECRETS_MANAGER,
+                    value: `${dbCredentialsSecret.secretArn}:username`,
+                },
+                DB_PASSWORD: {
+                    type: codebuild.BuildEnvironmentVariableType.SECRETS_MANAGER,
+                    value: `${dbCredentialsSecret.secretArn}:password`,
+                },
+            },
+            vpc,
+            securityGroups: [codebuildSecurityGroup],
+            subnetSelection: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+            buildSpec: buildSpec,
+        });
+
+        // Grant CodeBuild permissions to read the database secret
+        dbCredentialsSecret.grantRead(project.role!);
+    }
+}
