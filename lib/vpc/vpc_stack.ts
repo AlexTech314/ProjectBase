@@ -54,50 +54,7 @@ export class VPCStack extends cdk.Stack {
     });
 
     // Get CIDR blocks
-    const publicSubnetCidrs = publicSubnets.map(subnet => subnet.ipv4CidrBlock);
     const privateSubnetCidrs = privateSubnets.map(subnet => subnet.ipv4CidrBlock);
-    const isolatedSubnetCidrs = isolatedSubnets.map(subnet => subnet.ipv4CidrBlock);
-
-    // Configure Private Subnet NACL
-    // Allow inbound traffic from Public Subnets
-    publicSubnetCidrs.forEach((cidr, index) => {
-      privateNacl.addEntry(`AllowPublicInbound${index}`, {
-        ruleNumber: 100 + index,
-        cidr: ec2.AclCidr.ipv4(cidr),
-        traffic: ec2.AclTraffic.allTraffic(),
-        direction: ec2.TrafficDirection.INGRESS,
-        ruleAction: ec2.Action.ALLOW,
-      });
-    });
-
-    // Deny all other inbound traffic
-    privateNacl.addEntry('DenyOtherInbound', {
-      ruleNumber: 200,
-      cidr: ec2.AclCidr.anyIpv4(),
-      traffic: ec2.AclTraffic.allTraffic(),
-      direction: ec2.TrafficDirection.INGRESS,
-      ruleAction: ec2.Action.DENY,
-    });
-
-    // Allow outbound traffic to Isolated Subnets
-    isolatedSubnetCidrs.forEach((cidr, index) => {
-      privateNacl.addEntry(`AllowIsolatedOutbound${index}`, {
-        ruleNumber: 300 + index,
-        cidr: ec2.AclCidr.ipv4(cidr),
-        traffic: ec2.AclTraffic.allTraffic(),
-        direction: ec2.TrafficDirection.EGRESS,
-        ruleAction: ec2.Action.ALLOW,
-      });
-    });
-
-    // Allow all outbound traffic from private subnets so CodeBuild can run effectively
-    privateNacl.addEntry('AllowAllOutbound', {
-      ruleNumber: 500,
-      cidr: ec2.AclCidr.anyIpv4(),
-      traffic: ec2.AclTraffic.allTraffic(),
-      direction: ec2.TrafficDirection.EGRESS,
-      ruleAction: ec2.Action.ALLOW,
-    });
 
     // Configure Isolated Subnet NACL
     // Allow inbound traffic from Private Subnets
