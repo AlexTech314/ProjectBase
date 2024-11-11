@@ -69,15 +69,15 @@ export class RelationalDbStack extends cdk.NestedStack {
                 build: {
                     commands: [
                         'echo Running Liquibase changelog',
-                        'liquibase \\',
-                        '  --driver=com.mysql.cj.jdbc.Driver \\',
-                        '  --changeLogFile=src/db/changelog.sql \\',
-                        '  --url="jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}" \\',
-                        '  --username=${DB_USER} \\',
-                        '  --password=${DB_PASSWORD} \\',
-                        '  --logLevel=TRACE \\',
-                        '  update',
-                    ].join(' '),
+                        'liquibase \
+                          --driver=com.mysql.cj.jdbc.Driver \
+                          --changeLogFile=src/db/changelog.sql \
+                          --url="jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}" \
+                          --username=${DB_USER} \
+                          --password=${DB_PASSWORD} \
+                          --logLevel=TRACE \
+                          update',
+                    ],
                 },
             },
         });
