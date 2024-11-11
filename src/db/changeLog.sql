@@ -17,7 +17,7 @@ INSERT INTO test_table (name) VALUES ('Test Record');
 DROP TABLE test_table;
 
 -- Test changeSet 4: Create a table
---changeset test_user:1
+--changeset test_user:4
 CREATE TABLE test_table (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -25,11 +25,11 @@ CREATE TABLE test_table (
 );
 
 -- Test changeSet 5: Insert a sample record
---changeset test_user:2
+--changeset test_user:5
 INSERT INTO test_table (name) VALUES ('Test Record');
 
 -- Test changeSet 6: Create a stored procedure to test the table
---changeset test_user:3
+--changeset test_user:6
 DELIMITER $$
 
 CREATE PROCEDURE test_procedure()
@@ -47,13 +47,13 @@ END $$
 DELIMITER ;
 
 -- Test changeSet 7: Call the stored procedure
---changeset test_user:4
+--changeset test_user:7
 CALL test_procedure();
 
 -- Test changeSet 8: Drop the stored procedure
---changeset test_user:5
+--changeset test_user:8
 DROP PROCEDURE test_procedure;
 
 -- Test changeSet 9: Drop the table
---changeset test_user:6
+--changeset test_user:9
 DROP TABLE test_table;
