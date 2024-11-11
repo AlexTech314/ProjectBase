@@ -60,15 +60,8 @@ export class RelationalDbStack extends cdk.NestedStack {
         const buildSpec = codebuild.BuildSpec.fromObject({
             version: '0.2',
             phases: {
-                install: {
-                    commands: [
-                        'echo Installing MySQL JDBC driver',
-                        'curl -L -o /liquibase/lib/mysql-connector-java.jar https://repo1.maven.org/maven2/mysql/mysql-connector-java-8.0.28.jar',
-                    ],
-                },
                 build: {
                     commands: [
-                        'echo Running Liquibase changelog',
                         'liquibase --driver=com.mysql.cj.jdbc.Driver --changeLogFile=src/db/changelog.sql \
                         --url="jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}" --username=${DB_USER} --password=${DB_PASSWORD} \
                         --logLevel=TRACE update',
@@ -106,7 +99,7 @@ export class RelationalDbStack extends cdk.NestedStack {
         // Create the CodeBuild project without a source, as it will receive source code from CodePipeline
         const project = new PipelineProject(this, 'LiquibaseCodeBuildProject', {
             environment: {
-                buildImage: codebuild.LinuxBuildImage.fromDockerRegistry('liquibase/liquibase'),
+                buildImage: codebuild.LinuxBuildImage.fromDockerRegistry('liquibase/liquibase:latest-mysql'),
             },
             environmentVariables: {
                 DB_HOST: { value: dbInstance.dbInstanceEndpointAddress },
