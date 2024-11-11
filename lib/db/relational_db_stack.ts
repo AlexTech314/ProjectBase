@@ -1,11 +1,11 @@
-// liquibase-stack.ts
-
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as codebuild from 'aws-cdk-lib/aws-codebuild';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import { CfnGitHubRepository } from 'aws-cdk-lib/aws-codestar';
+import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
+
 
 interface RelationalDbStackProps extends cdk.StackProps {
     vpc: ec2.Vpc;
@@ -34,7 +34,7 @@ export class RelationalDbStack extends cdk.Stack {
             engine: rds.DatabaseInstanceEngine.mysql({
                 version: rds.MysqlEngineVersion.VER_8_0_39,
             }),
-            instanceType: ec2.InstanceType.of(ec2.InstanceClass.T2, ec2.InstanceSize.MICRO),
+            instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO),
             credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
             vpc,
             securityGroups: [dbSecurityGroup],
@@ -54,18 +54,6 @@ export class RelationalDbStack extends cdk.Stack {
         // Allow CodeBuild to connect to the RDS instance
         dbInstance.connections.allowDefaultPortFrom(codebuildSecurityGroup);
 
-        // Reference the GitHub token stored in Secrets Manager
-        const gitHubToken = secretsmanager.Secret.fromSecretNameV2(
-            this,
-            'GitHubToken',
-            'github-token',
-        );
-
-        // Set up GitHub source credentials for CodeBuild
-        new codebuild.GitHubSourceCredentials(this, 'GitHubCredentials', {
-            accessToken: gitHubToken.secretValue,
-        });
-
         // Define the build specification
         const buildSpec = codebuild.BuildSpec.fromObject({
             version: '0.2',
@@ -73,7 +61,7 @@ export class RelationalDbStack extends cdk.Stack {
                 install: {
                     commands: [
                         'echo Installing MySQL JDBC driver',
-                        'curl -L -o /liquibase/lib/mysql-connector-java.jar https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.28/mysql-connector-java-8.0.28.jar',
+                        'curl -L -o /liquibase/lib/mysql-connector-java.jar https://repo1.maven.org/maven2/mysql/mysql-connector-java-8.0.28.jar',
                     ],
                 },
                 build: {
@@ -100,6 +88,7 @@ export class RelationalDbStack extends cdk.Stack {
                 webhookFilters: [
                     codebuild.FilterGroup.inEventOf(codebuild.EventAction.PUSH).andBranchIs('main'),
                 ],
+                
             }),
             environment: {
                 buildImage: codebuild.LinuxBuildImage.fromDockerRegistry('liquibase/liquibase'),
@@ -121,6 +110,7 @@ export class RelationalDbStack extends cdk.Stack {
             securityGroups: [codebuildSecurityGroup],
             subnetSelection: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
             buildSpec: buildSpec,
+
         });
 
         // Grant CodeBuild permissions to read the database secret
