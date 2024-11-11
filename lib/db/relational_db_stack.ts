@@ -76,7 +76,7 @@ export class RelationalDbStack extends cdk.NestedStack {
                         '  --username=${DB_USER} \\',
                         '  --password=${DB_PASSWORD} \\',
                         '  update',
-                    ],
+                    ].join(' '),
                 },
             },
         });

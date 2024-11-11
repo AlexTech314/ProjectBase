@@ -38,15 +38,8 @@ export class VPCStack extends cdk.NestedStack {
     });
 
     // Get subnet selections
-    const publicSubnets = this.vpc.selectSubnets({ subnetType: ec2.SubnetType.PUBLIC }).subnets;
     const privateSubnets = this.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }).subnets;
     const isolatedSubnets = this.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_ISOLATED }).subnets;
-
-    // Create NACLs
-    const privateNacl = new ec2.NetworkAcl(this, 'PrivateSubnetNACL', {
-      vpc: this.vpc,
-      subnetSelection: { subnets: privateSubnets },
-    });
 
     const isolatedNacl = new ec2.NetworkAcl(this, 'IsolatedSubnetNACL', {
       vpc: this.vpc,
