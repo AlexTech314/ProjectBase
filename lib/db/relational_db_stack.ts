@@ -1,63 +1,68 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as rds from 'aws-cdk-lib/aws-rds';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
-import { PipelineProject } from 'aws-cdk-lib/aws-codebuild';
+import { BuildEnvironmentVariableType, BuildSpec, LinuxBuildImage, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
 import { CodeBuildAction, GitHubSourceAction, GitHubTrigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Artifact, Pipeline } from 'aws-cdk-lib/aws-codepipeline';
+import { SecurityGroup, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { AuroraMysqlEngineVersion, ClusterInstance, Credentials, DatabaseCluster, DatabaseClusterEngine, DatabaseInstance, DatabaseInstanceEngine, DatabaseSecret, MysqlEngineVersion } from 'aws-cdk-lib/aws-rds';
 
 
 interface RelationalDbStackProps extends cdk.StackProps {
-    vpc: ec2.Vpc;
+    vpc: Vpc;
 }
 
 export class RelationalDbStack extends cdk.NestedStack {
+    public readonly dbCluster: DatabaseCluster;
+    public readonly dbCredentialsSecret: DatabaseSecret;
+
     constructor(scope: Construct, id: string, props: RelationalDbStackProps) {
         super(scope, id, props);
 
         const vpc = props.vpc;
 
         // Create a security group for the RDS instance
-        const dbSecurityGroup = new ec2.SecurityGroup(this, 'DBSecurityGroup', {
+        const dbSecurityGroup = new SecurityGroup(this, 'DBSecurityGroup', {
             vpc,
             description: 'Allow database access',
             allowAllOutbound: true,
         });
 
         // Create a secret for the RDS credentials
-        const dbCredentialsSecret = new rds.DatabaseSecret(this, 'DBCredentialsSecret', {
+        const dbCredentialsSecret = new DatabaseSecret(this, 'DBCredentialsSecret', {
             username: 'admin',
         });
 
-        // Create the RDS instance
-        const dbInstance = new rds.DatabaseInstance(this, 'DBInstance', {
-            engine: rds.DatabaseInstanceEngine.mysql({
-                version: rds.MysqlEngineVersion.VER_8_0_39,
+        this.dbCredentialsSecret = dbCredentialsSecret;
+
+        const dbCluster = new DatabaseCluster(this, 'Database', {
+            engine: DatabaseClusterEngine.auroraMysql({ version: AuroraMysqlEngineVersion.VER_3_07_1 }),
+            writer: ClusterInstance.serverlessV2('writer', {
+                scaleWithWriter: true
             }),
-            instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO),
-            credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
-            vpc,
+            defaultDatabaseName: 'base',
+            credentials: Credentials.fromSecret(dbCredentialsSecret),
             securityGroups: [dbSecurityGroup],
             vpcSubnets: {
-                subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+                subnetType: SubnetType.PRIVATE_ISOLATED,
             },
-            databaseName: 'base',
-        });
+            vpc: vpc
+        })
+
+        this.dbCluster = dbCluster;
 
         // Security group for the CodeBuild project
-        const codebuildSecurityGroup = new ec2.SecurityGroup(this, 'CodeBuildSecurityGroup', {
+        const codebuildSecurityGroup = new SecurityGroup(this, 'CodeBuildSecurityGroup', {
             vpc,
             description: 'Allow CodeBuild access to RDS',
             allowAllOutbound: true,
         });
 
         // Allow CodeBuild to connect to the RDS instance
-        dbInstance.connections.allowDefaultPortFrom(codebuildSecurityGroup);
+        dbCluster.connections.allowDefaultPortFrom(codebuildSecurityGroup);
 
         // Define the build specification
-        const buildSpec = codebuild.BuildSpec.fromObject({
+        const buildSpec = BuildSpec.fromObject({
             version: '0.2',
             phases: {
                 install: {
@@ -112,24 +117,24 @@ export class RelationalDbStack extends cdk.NestedStack {
         // Create the CodeBuild project without a source, as it will receive source code from CodePipeline
         const project = new PipelineProject(this, 'LiquibaseCodeBuildProject', {
             environment: {
-                buildImage: codebuild.LinuxBuildImage.fromDockerRegistry('liquibase/liquibase'),
+                buildImage: LinuxBuildImage.fromDockerRegistry('liquibase/liquibase'),
             },
             environmentVariables: {
-                DB_HOST: { value: dbInstance.dbInstanceEndpointAddress },
-                DB_PORT: { value: dbInstance.dbInstanceEndpointPort },
+                DB_HOST: { value: dbCluster.clusterEndpoint.hostname },
+                DB_PORT: { value: dbCluster.clusterEndpoint.port.toString() },
                 DB_NAME: { value: 'base' },
                 DB_USER: {
-                    type: codebuild.BuildEnvironmentVariableType.SECRETS_MANAGER,
+                    type: BuildEnvironmentVariableType.SECRETS_MANAGER,
                     value: `${dbCredentialsSecret.secretArn}:username`,
                 },
                 DB_PASSWORD: {
-                    type: codebuild.BuildEnvironmentVariableType.SECRETS_MANAGER,
+                    type: BuildEnvironmentVariableType.SECRETS_MANAGER,
                     value: `${dbCredentialsSecret.secretArn}:password`,
                 },
             },
             vpc,
             securityGroups: [codebuildSecurityGroup],
-            subnetSelection: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+            subnetSelection: { subnetType: SubnetType.PRIVATE_WITH_EGRESS },
             buildSpec: buildSpec,
         });
 
