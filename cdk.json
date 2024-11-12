@@ -3,7 +3,9 @@
   "watch": {
     "include": [
       "**",
-      "src/**"
+      "api/**",
+      "ui/**",
+      "db/**"
     ],
     "exclude": [
       "README.md",

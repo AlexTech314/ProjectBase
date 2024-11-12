@@ -6,34 +6,23 @@ import { CodeBuildAction, GitHubSourceAction, GitHubTrigger } from 'aws-cdk-lib/
 import { Artifact, Pipeline } from 'aws-cdk-lib/aws-codepipeline';
 import { SecurityGroup, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { AuroraMysqlEngineVersion, ClusterInstance, Credentials, DatabaseCluster, DatabaseClusterEngine, DatabaseInstance, DatabaseInstanceEngine, DatabaseSecret, MysqlEngineVersion } from 'aws-cdk-lib/aws-rds';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 
 interface RelationalDbStackProps extends cdk.StackProps {
     vpc: Vpc;
+    dbSecurityGroup: SecurityGroup;
+    dbCredentialsSecretArn: string;
+    codebuildSecurityGroup: SecurityGroup;
 }
 
 export class RelationalDbStack extends cdk.NestedStack {
     public readonly dbCluster: DatabaseCluster;
-    public readonly dbCredentialsSecret: DatabaseSecret;
 
     constructor(scope: Construct, id: string, props: RelationalDbStackProps) {
         super(scope, id, props);
 
-        const vpc = props.vpc;
-
-        // Create a security group for the RDS instance
-        const dbSecurityGroup = new SecurityGroup(this, 'DBSecurityGroup', {
-            vpc,
-            description: 'Allow database access',
-            allowAllOutbound: true,
-        });
-
-        // Create a secret for the RDS credentials
-        const dbCredentialsSecret = new DatabaseSecret(this, 'DBCredentialsSecret', {
-            username: 'admin',
-        });
-
-        this.dbCredentialsSecret = dbCredentialsSecret;
+        const { vpc, dbSecurityGroup, dbCredentialsSecretArn, codebuildSecurityGroup } = props;
 
         const dbCluster = new DatabaseCluster(this, 'Database', {
             engine: DatabaseClusterEngine.auroraMysql({ version: AuroraMysqlEngineVersion.VER_3_07_1 }),
@@ -41,7 +30,7 @@ export class RelationalDbStack extends cdk.NestedStack {
                 scaleWithWriter: true
             }),
             defaultDatabaseName: 'base',
-            credentials: Credentials.fromSecret(dbCredentialsSecret),
+            credentials: Credentials.fromSecret(Secret.fromSecretCompleteArn(this, 'DBCredentials', dbCredentialsSecretArn)),
             securityGroups: [dbSecurityGroup],
             vpcSubnets: {
                 subnetType: SubnetType.PRIVATE_ISOLATED,
@@ -50,16 +39,6 @@ export class RelationalDbStack extends cdk.NestedStack {
         })
 
         this.dbCluster = dbCluster;
-
-        // Security group for the CodeBuild project
-        const codebuildSecurityGroup = new SecurityGroup(this, 'CodeBuildSecurityGroup', {
-            vpc,
-            description: 'Allow CodeBuild access to RDS',
-            allowAllOutbound: true,
-        });
-
-        // Allow CodeBuild to connect to the RDS instance
-        dbCluster.connections.allowDefaultPortFrom(codebuildSecurityGroup);
 
         // Define the build specification
         const buildSpec = BuildSpec.fromObject({
@@ -77,7 +56,7 @@ export class RelationalDbStack extends cdk.NestedStack {
                         'echo Running Liquibase changelog',
                         'liquibase \
                           --classpath=/liquibase/classpath/mysql-connector-java.jar \
-                          --changeLogFile=src/db/changeLog.sql \
+                          --changeLogFile=db/changeLog.sql \
                           --url="jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}" \
                           --username=${DB_USER} \
                           --password=${DB_PASSWORD} \
@@ -125,11 +104,11 @@ export class RelationalDbStack extends cdk.NestedStack {
                 DB_NAME: { value: 'base' },
                 DB_USER: {
                     type: BuildEnvironmentVariableType.SECRETS_MANAGER,
-                    value: `${dbCredentialsSecret.secretArn}:username`,
+                    value: `${dbCredentialsSecretArn}:username`,
                 },
                 DB_PASSWORD: {
                     type: BuildEnvironmentVariableType.SECRETS_MANAGER,
-                    value: `${dbCredentialsSecret.secretArn}:password`,
+                    value: `${dbCredentialsSecretArn}:password`,
                 },
             },
             vpc,
@@ -152,7 +131,10 @@ export class RelationalDbStack extends cdk.NestedStack {
         });
 
         // Grant CodeBuild permissions to read the database secret
-        dbCredentialsSecret.grantRead(project.role!);
+        project.role!.addToPrincipalPolicy(new PolicyStatement({
+            actions: ['secretsmanager:GetSecretValue'],
+            resources: [dbCredentialsSecretArn]
+        }))
     }
 }
 

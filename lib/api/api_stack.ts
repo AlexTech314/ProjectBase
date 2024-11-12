@@ -8,32 +8,24 @@ import {
 } from 'aws-cdk-lib/aws-ec2';
 import { LambdaRestApi } from 'aws-cdk-lib/aws-apigateway';
 import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 interface ApiStackProps extends cdk.StackProps {
     vpc: Vpc;
     dbCluster: DatabaseCluster;
-    dbCredentialsSecret: DatabaseSecret;
+    dbCredentialsSecretArn: string;
+    lambdaSecurityGroup: SecurityGroup;
 }
 
 export class ApiStack extends cdk.NestedStack {
     constructor(scope: Construct, id: string, props: ApiStackProps) {
         super(scope, id, props);
 
-        const { vpc, dbCluster, dbCredentialsSecret } = props;
-
-        // Create a security group for the Lambda function
-        const lambdaSecurityGroup = new SecurityGroup(this, 'LambdaSecurityGroup', {
-            vpc,
-            description: 'Security group for Lambda to access RDS',
-            allowAllOutbound: true,
-        });
-
-        // Allow Lambda's security group to connect to the DB's default port
-        dbCluster.connections.allowDefaultPortFrom(lambdaSecurityGroup, 'Allow Lambda to connect to DB');
+        const { vpc, dbCluster, dbCredentialsSecretArn, lambdaSecurityGroup } = props;
 
         // Create the Lambda function using DockerImageFunction
         const lambdaFunction = new DockerImageFunction(this, 'ApiLambdaFunction', {
-            code: DockerImageCode.fromImageAsset('./src/api', {
+            code: DockerImageCode.fromImageAsset('./api', {
                 cmd: ['index.handler'], // Ensure the correct handler is specified
             }),
             vpc,
@@ -43,12 +35,15 @@ export class ApiStack extends cdk.NestedStack {
                 DB_HOST: dbCluster.clusterEndpoint.hostname,
                 DB_PORT: dbCluster.clusterEndpoint.port.toString(),
                 DB_NAME: 'base', // Replace with your database name if different
-                DB_SECRET_ARN: dbCredentialsSecret.secretArn,
+                DB_SECRET_ARN: dbCredentialsSecretArn,
             },
         });
 
-        // Grant the Lambda function permissions to read the database secret
-        dbCredentialsSecret.grantRead(lambdaFunction);
+        // Grant the Lambda function permissions to read the database secret        
+        lambdaFunction.role?.addToPrincipalPolicy(new PolicyStatement({
+            actions: ['secretsmanager:GetSecretValue'],
+            resources: [dbCredentialsSecretArn],
+        }));    
 
         // Create API Gateway and integrate it with the Lambda function
         new LambdaRestApi(this, 'ApiGateway', {
