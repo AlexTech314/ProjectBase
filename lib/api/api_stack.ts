@@ -25,9 +25,7 @@ export class ApiStack extends cdk.NestedStack {
 
         // Create the Lambda function using DockerImageFunction
         const lambdaFunction = new DockerImageFunction(this, 'ApiLambdaFunction', {
-            code: DockerImageCode.fromImageAsset('./api', {
-                cmd: ['index.handler'], // Ensure the correct handler is specified
-            }),
+            code: DockerImageCode.fromImageAsset('./api'),
             vpc,
             vpcSubnets: { subnetType: SubnetType.PRIVATE_WITH_EGRESS },
             securityGroups: [lambdaSecurityGroup],
@@ -46,10 +44,14 @@ export class ApiStack extends cdk.NestedStack {
         }));    
 
         // Create API Gateway and integrate it with the Lambda function
-        new LambdaRestApi(this, 'ApiGateway', {
+        const apiGateway = new LambdaRestApi(this, 'ApiGateway', {
             handler: lambdaFunction,
             proxy: true,
         });
 
+        // Output the API Gateway URL
+        new cdk.CfnOutput(this, 'ApiGatewayUrl', {
+            value: apiGateway.url,
+        });
     }
 }

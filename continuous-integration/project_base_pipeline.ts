@@ -1,9 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { CodePipeline, CodePipelineSource, ShellStep } from 'aws-cdk-lib/pipelines';
+import { ProjectBaseStage } from './project_base_stage';
 
 
-export class SeleniumGlobalPipeline extends cdk.Stack {
+export class ProjectBasePipeline extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
         const pipeline = new CodePipeline(this, `${id}-Pipeline`, {
@@ -18,7 +19,11 @@ export class SeleniumGlobalPipeline extends cdk.Stack {
             })
         });
         // -- Insert stages to deploy below --
-        
+
+        pipeline.addStage(new ProjectBaseStage(this, 'Main'));
+        pipeline.buildPipeline();
+
+        // -- Add any pipeline level permissions here --
 
     }
 }
