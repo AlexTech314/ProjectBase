@@ -4,6 +4,7 @@ import { VPCStack } from './vpc/vpc_stack';
 import { RelationalDbStack } from './db/relational_db_stack';
 import { ApiStack } from './api/api_stack';
 import { CredentialsAndSecurityStack } from './credentials-and-security-groups.ts/credentials_and_security_groups';
+import { UIStack } from './ui/ui_stack';
 
 
 export class ProjectBaseStack extends cdk.Stack {
@@ -23,12 +24,15 @@ export class ProjectBaseStack extends cdk.Stack {
       codebuildSecurityGroup: credentialsAndSecurityStack.codebuildSecurityGroup,
     })
 
-    // Instantiate the API Stack
     new ApiStack(this, 'ApiStack', {
       vpc: vpcStack.vpc,
       dbCluster: relationalDbStack.dbCluster,
       dbCredentialsSecretArn: credentialsAndSecurityStack.dbCredentialsSecretArn,
       lambdaSecurityGroup: credentialsAndSecurityStack.lambdaSecurityGroup
     });
+
+    new UIStack(this, 'UIStack', {
+      vpc: vpcStack.vpc
+    })
   }
 }
