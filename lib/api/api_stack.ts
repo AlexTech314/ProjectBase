@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { DatabaseCluster, DatabaseSecret } from 'aws-cdk-lib/aws-rds';
+import { DatabaseCluster } from 'aws-cdk-lib/aws-rds';
 import {
     Vpc,
     SubnetType,

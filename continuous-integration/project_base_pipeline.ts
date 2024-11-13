@@ -7,10 +7,10 @@ import { ProjectBaseStage } from './project_base_stage';
 export class ProjectBasePipeline extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
-        const pipeline = new CodePipeline(this, `${id}-Pipeline`, {
+        const pipeline = new CodePipeline(this, id, {
             pipelineName: 'pipe',
             synth: new ShellStep('Synth', {
-                input: CodePipelineSource.gitHub('AlexTech314/SeleniumGlobal', 'main'),
+                input: CodePipelineSource.gitHub('AlexTech314/ProjectBase', 'main'),
                 commands: [
                     'npm ci',
                     'npm run build',
