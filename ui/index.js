@@ -1,14 +1,6 @@
 const serverless = require('serverless-http');
-const next = require('next');
 
-const app = next({
-  dev: false,
-  conf: {
-    compress: false,
-    poweredByHeader: false,
-    generateEtags: false
-  },
-});
+const app = require(path.join(__dirname, '.next/standalone/server.js'));
 
 const handle = app.getRequestHandler();
 
