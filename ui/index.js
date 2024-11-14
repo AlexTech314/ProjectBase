@@ -1,6 +1,16 @@
 const serverless = require('serverless-http');
-const path = require('path');
+const next = require('next');
 
-const app = require(path.join(__dirname, '.next/standalone/server.js'));
+const app = next({
+  dev: false,
+  conf: {
+    // Any custom Next.js configuration goes here
+  },
+});
 
-exports.handler = serverless(app);
+const handle = app.getRequestHandler();
+
+exports.handler = async (event, context) => {
+  await app.prepare();
+  return serverless((req, res) => handle(req, res))(event, context);
+};
