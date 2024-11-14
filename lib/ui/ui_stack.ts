@@ -32,6 +32,13 @@ export class UIStack extends cdk.NestedStack {
     const api = new LambdaRestApi(this, 'NextJsApiGateway', {
       handler: lambdaFunction,
       proxy: true,
+      defaultCorsPreflightOptions: {
+        allowOrigins: ['*'],
+        allowMethods: ['*'],
+        allowHeaders: ['*'],
+        allowCredentials: true,
+        maxAge: cdk.Duration.days(1)
+      } 
     });
 
     this.apiUrl = api.url;

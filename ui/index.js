@@ -4,7 +4,9 @@ const next = require('next');
 const app = next({
   dev: false,
   conf: {
-    // Any custom Next.js configuration goes here
+    compress: false,
+    poweredByHeader: false,
+    generateEtags: false
   },
 });
 
