@@ -1,8 +1,9 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { Vpc, SubnetType } from 'aws-cdk-lib/aws-ec2';
-import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
-import { LambdaRestApi } from 'aws-cdk-lib/aws-apigateway';
+import { Vpc } from 'aws-cdk-lib/aws-ec2';
+import { Nextjs } from 'cdk-nextjs-standalone';
+import { CfnOutput } from 'aws-cdk-lib';
+
 
 interface UIStackProps extends cdk.StackProps {
   vpc: Vpc;
@@ -14,39 +15,13 @@ export class UIStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: UIStackProps) {
     super(scope, id, props);
 
-    const { vpc } = props;
+    const nextjs = new Nextjs(this, 'Nextjs', {
+      nextjsPath: './ui',
+    });
 
-    // Create the Lambda function using DockerImageFunction
-    // const lambdaFunction = new DockerImageFunction(this, 'NextJsLambdaFunction', {
-    //   code: DockerImageCode.fromImageAsset('./ui', {
-    //     // Exclude unnecessary files to reduce image size
-    //     exclude: ['cdk.out', 'node_modules', '.git', '.github', '.vscode', '.next'],
-    //   }),
-    //   vpc,
-    //   vpcSubnets: { subnetType: SubnetType.PRIVATE_WITH_EGRESS },
-    //   memorySize: 1024, // Adjust as needed
-    //   timeout: cdk.Duration.seconds(30), // Adjust as needed
-    // });
+    new CfnOutput(this, "CloudFrontDistributionDomain", {
+      value: nextjs.distribution.distributionDomain,
+    });
 
-    // // Create API Gateway and integrate it with the Lambda function
-    // const api = new LambdaRestApi(this, 'NextJsApiGateway', {
-    //   handler: lambdaFunction,
-    //   proxy: true,
-    //   defaultCorsPreflightOptions: {
-    //     allowOrigins: ['*'],
-    //     allowMethods: ['*'],
-    //     allowHeaders: ['*'],
-    //     allowCredentials: true,
-    //     maxAge: cdk.Duration.days(1)
-    //   } 
-    // });
-
-    // this.apiUrl = api.url;
-
-    // // Output the API URL
-    // new cdk.CfnOutput(this, 'ApiUrl', {
-    //   value: this.apiUrl,
-    //   description: 'API Gateway endpoint URL',
-    // });
   }
 }
