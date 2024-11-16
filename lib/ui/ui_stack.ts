@@ -6,6 +6,8 @@ import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import { ApplicationLoadBalancedFargateService } from 'aws-cdk-lib/aws-ecs-patterns';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
 
 interface UIStackProps extends cdk.StackProps {
   vpc: Vpc;
@@ -99,5 +101,32 @@ export class UIStack extends cdk.NestedStack {
 
     // Optionally, you can store the CloudFront URL in a class property
     this.cloudFrontUrl = `https://${distribution.distributionDomainName}`;
+
+    // --------------------------------------------
+    // 7. Add Cache Invalidation Custom Resource
+    // --------------------------------------------
+    const invalidation = new AwsCustomResource(this, 'CacheInvalidation', {
+      onUpdate: {
+        service: 'CloudFront',
+        action: 'createInvalidation',
+        parameters: {
+          DistributionId: distribution.distributionId,
+          InvalidationBatch: {
+            Paths: {
+              Quantity: 1,
+              Items: ['/*'], // Invalidate all files. Adjust as needed.
+            },
+            CallerReference: new Date().toISOString(),
+          },
+        },
+        physicalResourceId: PhysicalResourceId.of(`CacheInvalidation-${new Date().toISOString()}`),
+      },
+      policy: AwsCustomResourcePolicy.fromStatements([
+        new PolicyStatement({
+          actions: ['cloudfront:CreateInvalidation'],
+          resources: ['*'], // Adjust to the specific distribution ARN if possible
+        }),
+      ]),
+    });
   }
 }
