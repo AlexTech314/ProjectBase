@@ -12,7 +12,6 @@ export class ProjectBasePipeline extends cdk.Stack {
             synth: new ShellStep('Synth', {
                 input: CodePipelineSource.gitHub('AlexTech314/ProjectBase', 'main'),
                 commands: [
-                    'cd ui && npm install && cd -',
                     'npm ci',
                     'npm run build',
                     'npx cdk synth'
