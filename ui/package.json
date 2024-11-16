@@ -2,6 +2,7 @@
   "name": "ui",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "npm@9.6.4",
   "scripts": {
     "openbuild": "node ../../packages/open-next/dist/index.js build --streaming --build-command \"npx turbo build\"",
     "dev": "next dev --turbopack --port 3001",
