@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname; //new URL(request.url).pathname;
@@ -10,10 +11,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(u, {
       headers: { "set-cookie": "test=success" },
     });
-  } else if (path === "/rewrite") {
+  }
+  if (path === "/rewrite") {
     const u = new URL("/rewrite-destination", `${protocol}://${host}`);
     return NextResponse.rewrite(u);
-  } else if (path === "/api/middleware") {
+  }
+  if (path === "/api/middleware") {
     return new NextResponse(JSON.stringify({ hello: "middleware" }), {
       status: 200,
       headers: {
@@ -21,7 +24,6 @@ export function middleware(request: NextRequest) {
       },
     });
   }
-
   const requestHeaders = new Headers();
   // Setting the Request Headers, this should be available in RSC
   requestHeaders.set("request-header", "request-header");
@@ -43,7 +45,10 @@ export function middleware(request: NextRequest) {
   }
 
   // It is so that cloudfront doesn't cache the response
-  if (path.startsWith("/revalidate-tag")) {
+  if (
+    path.startsWith("/revalidate-tag") ||
+    path.startsWith("/revalidate-path")
+  ) {
     responseHeaders.set(
       "cache-control",
       "private, no-cache, no-store, max-age=0, must-revalidate",
