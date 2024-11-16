@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Vpc } from 'aws-cdk-lib/aws-ec2';
-import { Nextjs } from 'cdk-nextjs-standalone';
+import { Nextjs } from 'open-next-cdk';
 import { CfnOutput } from 'aws-cdk-lib';
 
 
@@ -16,11 +16,7 @@ export class UIStack extends cdk.NestedStack {
     super(scope, id, props);
 
     const nextjs = new Nextjs(this, 'Nextjs', {
-      nextjsPath: './ui',
-      buildCommand: 'npm run openbuild',
-      overrides: {
-        // TODO: add overrides to place lambdas in private subnets later
-      }
+      nextjsPath: './ui'
     });
 
     new CfnOutput(this, "CloudFrontDistributionDomain", {
