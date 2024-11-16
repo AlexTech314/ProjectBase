@@ -17,7 +17,7 @@ export class UIStack extends cdk.NestedStack {
 
     const nextjs = new Nextjs(this, 'Nextjs', {
       nextjsPath: './ui',
-      buildCommand: 'npx open-next@^2 build',
+      buildCommand: 'npm run openbuild',
       overrides: {
         // TODO: add overrides to place lambdas in private subnets later
       }
