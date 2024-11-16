@@ -32,6 +32,9 @@ export class UIStack extends cdk.NestedStack {
     // --------------------------------------------
     const image = new DockerImageAsset(this, 'UIImage', {
       directory: './ui',
+      buildArgs: {
+        NEXT_PUBLIC_API_URL: apiUrl
+      }
     });
 
     // --------------------------------------------
@@ -48,10 +51,7 @@ export class UIStack extends cdk.NestedStack {
         containerPort: 3000,
         logDriver: LogDriver.awsLogs({ streamPrefix: 'UIImageStream' }),
         enableLogging: true,
-        environment: {
-          NODE_ENV: 'production',
-          NEXT_PUBLIC_API_URL: apiUrl
-        }
+        environment: {}
       },
       securityGroups: [
         SecurityGroup.fromSecurityGroupId(this, "UISecurity", uiSecurityGroupId)
