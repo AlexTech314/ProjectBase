@@ -1,8 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Vpc } from 'aws-cdk-lib/aws-ec2';
-import { Nextjs } from 'open-next-cdk';
-import { CfnOutput } from 'aws-cdk-lib';
 
 
 interface UIStackProps extends cdk.StackProps {
@@ -14,14 +12,6 @@ export class UIStack extends cdk.NestedStack {
 
   constructor(scope: Construct, id: string, props: UIStackProps) {
     super(scope, id, props);
-
-    const nextjs = new Nextjs(this, 'Nextjs', {
-      nextjsPath: './ui'
-    });
-
-    new CfnOutput(this, "CloudFrontDistributionDomain", {
-      value: nextjs.distribution.distributionDomain,
-    });
 
   }
 }
