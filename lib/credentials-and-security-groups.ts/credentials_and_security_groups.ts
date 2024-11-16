@@ -15,7 +15,7 @@ export class CredentialsAndSecurityStack extends cdk.NestedStack {
   public readonly dbSecurityGroup: SecurityGroup;
   public readonly codebuildSecurityGroup: SecurityGroup;
   public readonly lambdaSecurityGroup: SecurityGroup;
-  public readonly uiSecurityGroup: SecurityGroup;
+  public readonly uiSecurityGroupId: string;
   public readonly dbCredentialsSecretArn: string;
 
   constructor(scope: Construct, id: string, props: CredentialsAndSecurityStackProps) {
@@ -62,11 +62,13 @@ export class CredentialsAndSecurityStack extends cdk.NestedStack {
     // --------------------------------------------
     // 5. Create a Security Group for the Fargate UI Service
     // --------------------------------------------
-    this.uiSecurityGroup = new SecurityGroup(this, 'UISecurityGroup', {
+    const uiSecurityGroup = new SecurityGroup(this, 'UISecurityGroup', {
       vpc,
       description: 'Security group for the load-balanced Fargate UI',
       allowAllOutbound: true,
-    });
+    })
+
+    this.uiSecurityGroupId = uiSecurityGroup.securityGroupId;
 
     // --------------------------------------------
     // 6. Configure Ingress Rules
@@ -75,7 +77,7 @@ export class CredentialsAndSecurityStack extends cdk.NestedStack {
     // 6.1 Allow UI Security Group to communicate with Lambda Security Group
     // Assuming Lambda listens on port 443 (HTTPS). Adjust the port as needed.
     this.lambdaSecurityGroup.addIngressRule(
-      this.uiSecurityGroup,
+      uiSecurityGroup,
       Port.tcp(443),
       'Allow UI to access Lambda on port 443'
     );
@@ -98,7 +100,7 @@ export class CredentialsAndSecurityStack extends cdk.NestedStack {
     // 7. Output Security Group IDs
     // --------------------------------------------
     new cdk.CfnOutput(this, 'UISecurityGroupId', {
-      value: this.uiSecurityGroup.securityGroupId,
+      value: this.uiSecurityGroupId,
       description: 'Security Group ID for the Fargate UI',
     });
 

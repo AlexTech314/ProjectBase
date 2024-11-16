@@ -18,6 +18,7 @@ interface ApiStackProps extends cdk.StackProps {
 }
 
 export class ApiStack extends cdk.NestedStack {
+    public readonly url: string
     constructor(scope: Construct, id: string, props: ApiStackProps) {
         super(scope, id, props);
 
@@ -48,6 +49,8 @@ export class ApiStack extends cdk.NestedStack {
             handler: lambdaFunction,
             proxy: true,
         });
+
+        this.url = apiGateway.url
 
         // Output the API Gateway URL
         new cdk.CfnOutput(this, 'ApiGatewayUrl', {

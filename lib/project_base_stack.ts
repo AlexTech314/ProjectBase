@@ -24,7 +24,7 @@ export class ProjectBaseStack extends cdk.Stack {
       codebuildSecurityGroup: credentialsAndSecurityStack.codebuildSecurityGroup,
     })
 
-    new ApiStack(this, 'ApiStack', {
+    const apiStack = new ApiStack(this, 'ApiStack', {
       vpc: vpcStack.vpc,
       dbCluster: relationalDbStack.dbCluster,
       dbCredentialsSecretArn: credentialsAndSecurityStack.dbCredentialsSecretArn,
@@ -33,7 +33,7 @@ export class ProjectBaseStack extends cdk.Stack {
 
     new UIStack(this, 'UIStack', {
       vpc: vpcStack.vpc,
-      uiSecurityGroup: credentialsAndSecurityStack.uiSecurityGroup
+      uiSecurityGroupId: credentialsAndSecurityStack.uiSecurityGroupId
     })
   }
 }
