@@ -17,6 +17,9 @@ export class UIStack extends cdk.NestedStack {
 
     const nextjs = new Nextjs(this, 'Nextjs', {
       nextjsPath: './ui',
+      overrides: {
+        
+      }
     });
 
     new CfnOutput(this, "CloudFrontDistributionDomain", {
