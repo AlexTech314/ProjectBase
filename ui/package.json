@@ -11,9 +11,7 @@
     "clean": "rm -rf .turbo node_modules .next .open-next"
   },
   "dependencies": {
-    "@example/shared": "workspace:*",
     "next": "15.0.1",
-    "@opennextjs/aws": "workspace:*",
     "react": "19.0.0-rc-69d4b800-20241021",
     "react-dom": "19.0.0-rc-69d4b800-20241021"
   },
