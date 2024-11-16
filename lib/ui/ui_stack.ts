@@ -110,7 +110,7 @@ export class UIStack extends cdk.NestedStack {
     // --------------------------------------------
     // 7. Add Cache Invalidation Custom Resource
     // --------------------------------------------
-    const invalidation = new AwsCustomResource(this, 'CacheInvalidation', {
+    new AwsCustomResource(this, 'CacheInvalidation', {
       onUpdate: {
         service: 'CloudFront',
         action: 'createInvalidation',
