@@ -33,7 +33,8 @@ export class ProjectBaseStack extends cdk.Stack {
 
     new UIStack(this, 'UIStack', {
       vpc: vpcStack.vpc,
-      uiSecurityGroupId: credentialsAndSecurityStack.uiSecurityGroupId
+      uiSecurityGroupId: credentialsAndSecurityStack.uiSecurityGroupId,
+      apiUrl: apiStack.url
     })
   }
 }

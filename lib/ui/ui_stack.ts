@@ -10,6 +10,7 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 interface UIStackProps extends cdk.StackProps {
   vpc: Vpc;
   uiSecurityGroupId: string
+  apiUrl: string
 }
 
 export class UIStack extends cdk.NestedStack {
@@ -19,7 +20,7 @@ export class UIStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: UIStackProps) {
     super(scope, id, props);
 
-    const { vpc, uiSecurityGroupId } = props;
+    const { vpc, uiSecurityGroupId, apiUrl } = props;
 
     // --------------------------------------------
     // 1. Create ECS Cluster
@@ -49,6 +50,7 @@ export class UIStack extends cdk.NestedStack {
         enableLogging: true,
         environment: {
           NODE_ENV: 'production',
+          NEXT_PUBLIC_API_URL: apiUrl
         }
       },
       securityGroups: [
