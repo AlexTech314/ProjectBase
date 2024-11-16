@@ -1,7 +1,38 @@
+// app/page.tsx
+
+"use client"; // Designate this component as a client component
+
+import { useEffect, useState } from "react";
 import Image from "next/image";
 
 export default function Home() {
-  console.log(process.env.NEXT_PUBLIC_API_URL)
+  const [apiData, setApiData] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const apiUrl: string = process.env.NEXT_PUBLIC_API_URL || '';
+      console.log(`Logging NEXT_PUBLIC_API_URL ${apiUrl}`);
+
+      try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setApiData(data);
+        console.log("API Response:", data);
+      } catch (err: any) {
+        console.error("Error fetching data:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
@@ -98,6 +129,20 @@ export default function Home() {
           Go to nextjs.org →
         </a>
       </footer>
+
+      {/* Display API Call Status */}
+      <div className="absolute top-4 left-4 bg-white dark:bg-gray-800 p-4 rounded shadow">
+        {loading && <p>Loading data...</p>}
+        {error && <p className="text-red-500">Error: {error}</p>}
+        {apiData && (
+          <div>
+            <h2 className="font-bold mb-2">API Data:</h2>
+            <pre className="bg-gray-100 dark:bg-gray-700 p-2 rounded">
+              {JSON.stringify(apiData, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
