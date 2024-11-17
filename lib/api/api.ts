@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { DatabaseCluster } from 'aws-cdk-lib/aws-rds';
+import { DatabaseCluster, DatabaseSecret } from 'aws-cdk-lib/aws-rds';
 import {
     Vpc,
     SubnetType,
@@ -13,7 +13,7 @@ import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 interface ApiProps {
     vpc: Vpc;
     dbCluster: DatabaseCluster;
-    dbCredentialsSecretArn: string;
+    dbCredentialsSecret: DatabaseSecret;
     lambdaSecurityGroup: SecurityGroup;
 }
 
@@ -22,7 +22,7 @@ export class Api extends Construct {
     constructor(scope: Construct, id: string, props: ApiProps) {
         super(scope, id);
 
-        const { vpc, dbCluster, dbCredentialsSecretArn, lambdaSecurityGroup } = props;
+        const { vpc, dbCluster, dbCredentialsSecret, lambdaSecurityGroup } = props;
 
         // Create the Lambda function using DockerImageFunction
         const lambdaFunction = new DockerImageFunction(this, 'ApiLambdaFunction', {
@@ -34,15 +34,11 @@ export class Api extends Construct {
                 DB_HOST: dbCluster.clusterEndpoint.hostname,
                 DB_PORT: dbCluster.clusterEndpoint.port.toString(),
                 DB_NAME: 'base', // Replace with your database name if different
-                DB_SECRET_ARN: dbCredentialsSecretArn,
+                DB_SECRET_ARN: dbCredentialsSecret.secretFullArn || '',
             },
         });
 
-        // Grant the Lambda function permissions to read the database secret        
-        lambdaFunction.role?.addToPrincipalPolicy(new PolicyStatement({
-            actions: ['secretsmanager:GetSecretValue'],
-            resources: [dbCredentialsSecretArn],
-        }));    
+        dbCredentialsSecret.grantRead(lambdaFunction.role!)        
 
         // Create API Gateway and integrate it with the Lambda function
         const apiGateway = new LambdaRestApi(this, 'ApiGateway', {

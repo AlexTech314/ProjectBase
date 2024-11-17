@@ -15,8 +15,8 @@ export class CredentialsAndSecurityBase extends Construct {
   public readonly dbSecurityGroup: SecurityGroup;
   public readonly codebuildSecurityGroup: SecurityGroup;
   public readonly lambdaSecurityGroup: SecurityGroup;
-  public readonly uiSecurityGroupId: string;
-  public readonly dbCredentialsSecretArn: string;
+  public readonly uiSecurityGroup: SecurityGroup;
+  public readonly dbCredentialsSecret: DatabaseSecret;
 
   constructor(scope: Construct, id: string, props: CredentialsAndSecurityBaseProps) {
     super(scope, id);
@@ -39,7 +39,7 @@ export class CredentialsAndSecurityBase extends Construct {
       username: 'admin',
     });
 
-    this.dbCredentialsSecretArn = dbCredentialsSecret.secretArn;
+    this.dbCredentialsSecret = dbCredentialsSecret;
 
     // --------------------------------------------
     // 3. Create a Security Group for CodeBuild
@@ -68,7 +68,7 @@ export class CredentialsAndSecurityBase extends Construct {
       allowAllOutbound: true,
     })
 
-    this.uiSecurityGroupId = uiSecurityGroup.securityGroupId;
+    this.uiSecurityGroup = uiSecurityGroup;
 
     // --------------------------------------------
     // 6. Configure Ingress Rules
@@ -100,7 +100,7 @@ export class CredentialsAndSecurityBase extends Construct {
     // 7. Output Security Group IDs
     // --------------------------------------------
     new cdk.CfnOutput(this, 'UISecurityGroupId', {
-      value: this.uiSecurityGroupId,
+      value: this.uiSecurityGroup.securityGroupId,
       description: 'Security Group ID for the Fargate UI',
     });
 

@@ -4,14 +4,14 @@ import { BuildEnvironmentVariableType, BuildSpec, LinuxBuildImage, PipelineProje
 import { CodeBuildAction, GitHubSourceAction, GitHubTrigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Artifact, Pipeline } from 'aws-cdk-lib/aws-codepipeline';
 import { SecurityGroup, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
-import { AuroraMysqlEngineVersion, ClusterInstance, Credentials, DatabaseCluster, DatabaseClusterEngine } from 'aws-cdk-lib/aws-rds';
+import { AuroraMysqlEngineVersion, ClusterInstance, Credentials, DatabaseCluster, DatabaseClusterEngine, DatabaseSecret } from 'aws-cdk-lib/aws-rds';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 
 interface RelationalDbProps {
     vpc: Vpc;
     dbSecurityGroup: SecurityGroup;
-    dbCredentialsSecretArn: string;
+    dbCredentialsSecret: DatabaseSecret;
     codebuildSecurityGroup: SecurityGroup;
 }
 
@@ -21,7 +21,7 @@ export class RelationalDb extends Construct {
     constructor(scope: Construct, id: string, props: RelationalDbProps) {
         super(scope, id);
 
-        const { vpc, dbSecurityGroup, dbCredentialsSecretArn, codebuildSecurityGroup } = props;
+        const { vpc, dbSecurityGroup, dbCredentialsSecret, codebuildSecurityGroup } = props;
 
         const dbCluster = new DatabaseCluster(this, 'Database', {
             engine: DatabaseClusterEngine.auroraMysql({ version: AuroraMysqlEngineVersion.VER_3_07_1 }),
@@ -29,7 +29,7 @@ export class RelationalDb extends Construct {
                 scaleWithWriter: true
             }),
             defaultDatabaseName: 'base',
-            credentials: Credentials.fromSecret(Secret.fromSecretCompleteArn(this, 'DBCredentials', dbCredentialsSecretArn)),
+            credentials: Credentials.fromSecret(dbCredentialsSecret),
             securityGroups: [dbSecurityGroup],
             vpcSubnets: {
                 subnetType: SubnetType.PRIVATE_ISOLATED,
@@ -103,11 +103,11 @@ export class RelationalDb extends Construct {
                 DB_NAME: { value: 'base' },
                 DB_USER: {
                     type: BuildEnvironmentVariableType.SECRETS_MANAGER,
-                    value: `${dbCredentialsSecretArn}:username`,
+                    value: `${dbCredentialsSecret.secretFullArn}:username`,
                 },
                 DB_PASSWORD: {
                     type: BuildEnvironmentVariableType.SECRETS_MANAGER,
-                    value: `${dbCredentialsSecretArn}:password`,
+                    value: `${dbCredentialsSecret.secretFullArn}:password`,
                 },
             },
             vpc,
@@ -129,11 +129,7 @@ export class RelationalDb extends Construct {
             })],
         });
 
-        // Grant CodeBuild permissions to read the database secret
-        project.role!.addToPrincipalPolicy(new PolicyStatement({
-            actions: ['secretsmanager:GetSecretValue'],
-            resources: [dbCredentialsSecretArn]
-        }))
+        dbCredentialsSecret.grantRead(project.role!)
     }
 }
 

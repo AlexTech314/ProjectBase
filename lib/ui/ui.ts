@@ -11,7 +11,7 @@ import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from '
 
 interface UIProps {
   vpc: Vpc;
-  uiSecurityGroupId: string
+  uiSecurityGroup: SecurityGroup
   apiUrl: string
 }
 
@@ -22,7 +22,7 @@ export class UI extends Construct {
   constructor(scope: Construct, id: string, props: UIProps) {
     super(scope, id);
 
-    const { vpc, uiSecurityGroupId, apiUrl } = props;
+    const { vpc, uiSecurityGroup, apiUrl } = props;
 
     // --------------------------------------------
     // 1. Create ECS Cluster
@@ -53,7 +53,7 @@ export class UI extends Construct {
         environment: {}
       },
       securityGroups: [
-        SecurityGroup.fromSecurityGroupId(this, "UISecurity", uiSecurityGroupId)
+        uiSecurityGroup
       ]
     });
 

@@ -19,20 +19,20 @@ export class ProjectBase extends Construct {
     const relationalDbBase = new RelationalDb(this, 'RelationalDb', {
       vpc: vpcBase.vpc,
       dbSecurityGroup: credentialsAndSecurityBase.dbSecurityGroup,
-      dbCredentialsSecretArn: credentialsAndSecurityBase.dbCredentialsSecretArn,
+      dbCredentialsSecret: credentialsAndSecurityBase.dbCredentialsSecret,
       codebuildSecurityGroup: credentialsAndSecurityBase.codebuildSecurityGroup,
     })
 
     const apiStack = new Api(this, 'Api', {
       vpc: vpcBase.vpc,
       dbCluster: relationalDbBase.dbCluster,
-      dbCredentialsSecretArn: credentialsAndSecurityBase.dbCredentialsSecretArn,
+      dbCredentialsSecret: credentialsAndSecurityBase.dbCredentialsSecret,
       lambdaSecurityGroup: credentialsAndSecurityBase.lambdaSecurityGroup
     });
 
     new UI(this, 'UI', {
       vpc: vpcBase.vpc,
-      uiSecurityGroupId: credentialsAndSecurityBase.uiSecurityGroupId,
+      uiSecurityGroup: credentialsAndSecurityBase.uiSecurityGroup,
       apiUrl: apiStack.url
     })
   }
