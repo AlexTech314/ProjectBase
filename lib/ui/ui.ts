@@ -9,18 +9,18 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
 
-interface UIStackProps extends cdk.StackProps {
+interface UIProps {
   vpc: Vpc;
   uiSecurityGroupId: string
   apiUrl: string
 }
 
-export class UIStack extends cdk.NestedStack {
+export class UI extends Construct {
   public readonly apiUrl: string;
   public readonly cloudFrontUrl: string; // New property to hold CloudFront URL
 
-  constructor(scope: Construct, id: string, props: UIStackProps) {
-    super(scope, id, props);
+  constructor(scope: Construct, id: string, props: UIProps) {
+    super(scope, id);
 
     const { vpc, uiSecurityGroupId, apiUrl } = props;
 

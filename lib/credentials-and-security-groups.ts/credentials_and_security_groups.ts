@@ -7,19 +7,19 @@ import {
 } from 'aws-cdk-lib/aws-ec2';
 import { DatabaseSecret } from 'aws-cdk-lib/aws-rds';
 
-interface CredentialsAndSecurityStackProps extends cdk.StackProps {
+interface CredentialsAndSecurityBaseProps {
   vpc: Vpc;
 }
 
-export class CredentialsAndSecurityStack extends cdk.NestedStack {
+export class CredentialsAndSecurityBase extends Construct {
   public readonly dbSecurityGroup: SecurityGroup;
   public readonly codebuildSecurityGroup: SecurityGroup;
   public readonly lambdaSecurityGroup: SecurityGroup;
   public readonly uiSecurityGroupId: string;
   public readonly dbCredentialsSecretArn: string;
 
-  constructor(scope: Construct, id: string, props: CredentialsAndSecurityStackProps) {
-    super(scope, id, props);
+  constructor(scope: Construct, id: string, props: CredentialsAndSecurityBaseProps) {
+    super(scope, id);
 
     const { vpc } = props;
 

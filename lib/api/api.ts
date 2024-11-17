@@ -10,17 +10,17 @@ import { LambdaRestApi } from 'aws-cdk-lib/aws-apigateway';
 import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
-interface ApiStackProps extends cdk.StackProps {
+interface ApiProps {
     vpc: Vpc;
     dbCluster: DatabaseCluster;
     dbCredentialsSecretArn: string;
     lambdaSecurityGroup: SecurityGroup;
 }
 
-export class ApiStack extends cdk.NestedStack {
+export class Api extends Construct {
     public readonly url: string
-    constructor(scope: Construct, id: string, props: ApiStackProps) {
-        super(scope, id, props);
+    constructor(scope: Construct, id: string, props: ApiProps) {
+        super(scope, id);
 
         const { vpc, dbCluster, dbCredentialsSecretArn, lambdaSecurityGroup } = props;
 

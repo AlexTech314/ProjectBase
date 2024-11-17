@@ -1,4 +1,3 @@
-import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { BuildEnvironmentVariableType, BuildSpec, LinuxBuildImage, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
@@ -9,18 +8,18 @@ import { AuroraMysqlEngineVersion, ClusterInstance, Credentials, DatabaseCluster
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 
-interface RelationalDbStackProps extends cdk.StackProps {
+interface RelationalDbProps {
     vpc: Vpc;
     dbSecurityGroup: SecurityGroup;
     dbCredentialsSecretArn: string;
     codebuildSecurityGroup: SecurityGroup;
 }
 
-export class RelationalDbStack extends cdk.NestedStack {
+export class RelationalDb extends Construct {
     public readonly dbCluster: DatabaseCluster;
 
-    constructor(scope: Construct, id: string, props: RelationalDbStackProps) {
-        super(scope, id, props);
+    constructor(scope: Construct, id: string, props: RelationalDbProps) {
+        super(scope, id);
 
         const { vpc, dbSecurityGroup, dbCredentialsSecretArn, codebuildSecurityGroup } = props;
 

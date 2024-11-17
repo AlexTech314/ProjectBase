@@ -2,11 +2,11 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
-export class VPCStack extends cdk.NestedStack {
+export class VPCBase extends Construct {
   public readonly vpc: ec2.Vpc;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
+  constructor(scope: Construct, id: string) {
+    super(scope, id);
 
     // Create the VPC with public, private (with NAT), and isolated (private without NAT) subnets
     this.vpc = new ec2.Vpc(this, `${id}-VPC`, {
@@ -29,12 +29,6 @@ export class VPCStack extends cdk.NestedStack {
         },
       ],
       natGateways: 1, // Number of NAT Gateways to create
-    });
-
-    // Output the VPC ID for cross-stack references
-    new cdk.CfnOutput(this, 'VPCId', {
-      value: this.vpc.vpcId,
-      exportName: `${this.stackName}:VPCId`,
     });
 
     // Get subnet selections
