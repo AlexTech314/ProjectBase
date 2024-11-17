@@ -22,7 +22,7 @@ export class UIStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: UIStackProps) {
     super(scope, id, props);
 
-    const { vpc, uiSecurityGroupId } = props;
+    const { vpc, uiSecurityGroupId, apiUrl } = props;
 
     // --------------------------------------------
     // 1. Create ECS Cluster
@@ -32,16 +32,8 @@ export class UIStack extends cdk.NestedStack {
     // --------------------------------------------
     // 2. Build Docker Image for UI
     // --------------------------------------------
-    let apiUrl: string = ''
-    if (id.toLowerCase().includes('main')) {
-      apiUrl = 'https://3c5pp045vl.execute-api.us-west-1.amazonaws.com/prod'
-    }
-
     const image = new DockerImageAsset(this, 'UIImage', {
-      directory: './ui',
-      buildArgs: {
-        NEXT_PUBLIC_API_URL: apiUrl
-      }
+      directory: './ui'
     });
 
     // --------------------------------------------
