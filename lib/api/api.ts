@@ -29,7 +29,7 @@ export class Api extends Construct {
 
         // Create the main Lambda function using DockerImageFunction
         this.mainLambda = new DockerImageFunction(this, 'ApiLambdaFunction', {
-            code: DockerImageCode.fromImageAsset('./api/main'),
+            code: DockerImageCode.fromImageAsset('./src/api/main'),
             vpc,
             vpcSubnets: { subnetType: SubnetType.PRIVATE_WITH_EGRESS },
             environment: {
@@ -74,7 +74,7 @@ export class Api extends Construct {
         const corsLambda = new Function(this, 'CorsLambdaFunction', {
             runtime: Runtime.NODEJS_LATEST, // Choose runtime as per your preference
             handler: 'index.handler',
-            code: Code.fromAsset('./api/cors'), // Directory with your CORS Lambda code
+            code: Code.fromAsset('./src/api/cors'), // Directory with your CORS Lambda code
             environment: {
                 ALLOWED_ORIGIN: origin
             },

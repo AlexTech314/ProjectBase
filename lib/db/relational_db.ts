@@ -55,7 +55,7 @@ export class RelationalDb extends Construct {
                         'echo Running Liquibase changelog',
                         'liquibase \
                           --classpath=/liquibase/classpath/mysql-connector-java.jar \
-                          --changeLogFile=db/changeLog.sql \
+                          --changeLogFile=src/db/changeLog.sql \
                           --url="jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}" \
                           --username=${DB_USER} \
                           --password=${DB_PASSWORD} \

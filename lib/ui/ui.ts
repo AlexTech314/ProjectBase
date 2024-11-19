@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { SecurityGroup, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Cluster, ContainerImage, LogDriver } from 'aws-cdk-lib/aws-ecs';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import { ApplicationLoadBalancedFargateService } from 'aws-cdk-lib/aws-ecs-patterns';
@@ -24,7 +24,7 @@ export class UI extends Construct {
     const cluster = new Cluster(this, 'ECSCluster', { vpc });
 
     const image = new DockerImageAsset(this, 'UIImage', {
-      directory: './ui'
+      directory: './src/ui'
     });
 
     const loadBalancedFargateService = new ApplicationLoadBalancedFargateService(this, 'Service', {
@@ -42,9 +42,6 @@ export class UI extends Construct {
       }
     });
 
-    // --------------------------------------------
-    // 4. Auto Scaling Configuration
-    // --------------------------------------------
     const scalableTarget = loadBalancedFargateService.service.autoScaleTaskCount({
       minCapacity: 1,
       maxCapacity: 1000,
@@ -58,35 +55,24 @@ export class UI extends Construct {
       targetUtilizationPercent: 95,
     });
 
-    // --------------------------------------------
-    // 5. Create CloudFront Distribution
-    // --------------------------------------------
     const distribution = new cloudfront.Distribution(this, 'CloudFrontDistribution', {
       defaultBehavior: {
         origin: new origins.LoadBalancerV2Origin(loadBalancedFargateService.loadBalancer, {
-          // Optional: Configure connection settings, such as protocol policy
-          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY, // Adjust as needed
+          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
         }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED, // You can customize caching policies
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
       },
     });
 
-    // --------------------------------------------
-    // 6. Output CloudFront Distribution URL
-    // --------------------------------------------
     new cdk.CfnOutput(this, 'CloudFrontURL', {
       value: `https://${distribution.distributionDomainName}`,
       description: 'URL of the CloudFront Distribution for the UI',
       exportName: 'CloudFrontURL',
     });
 
-    // Optionally, you can store the CloudFront URL in a class property
     this.url = `https://${distribution.distributionDomainName}`;
 
-    // --------------------------------------------
-    // 7. Add Cache Invalidation Custom Resource
-    // --------------------------------------------
     new AwsCustomResource(this, 'CacheInvalidation', {
       onUpdate: {
         service: 'CloudFront',
@@ -96,7 +82,7 @@ export class UI extends Construct {
           InvalidationBatch: {
             Paths: {
               Quantity: 1,
-              Items: ['/*'], // Invalidate all files. Adjust as needed.
+              Items: ['/*'],
             },
             CallerReference: new Date().toISOString(),
           },
@@ -106,7 +92,9 @@ export class UI extends Construct {
       policy: AwsCustomResourcePolicy.fromStatements([
         new PolicyStatement({
           actions: ['cloudfront:CreateInvalidation'],
-          resources: ['*'], // Adjust to the specific distribution ARN if possible
+          resources: [
+            `arn:aws:cloudfront::${cdk.Stack.of(this).account}:distribution/${distribution.distributionId}`
+          ],
         }),
       ]),
     });
