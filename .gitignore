@@ -6,8 +6,6 @@
 .cdk.staging
 cdk.out
 
-!api/**
-!db/**
-!ui/**
+!src/**
 
 node_modules
