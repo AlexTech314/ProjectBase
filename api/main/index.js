@@ -5,7 +5,10 @@ let secret;
 let pool;
 
 exports.handler = async (event) => {
-    const { DB_HOST, DB_PORT, DB_NAME, DB_SECRET_ARN } = process.env;
+    const { DB_HOST, DB_PORT, DB_NAME, DB_SECRET_ARN, ALLOWED_ORIGIN } = process.env;
+
+    const origin = event.headers.origin || '*';
+    const isAllowedOrigin = ALLOWED_ORIGIN === '*' || ALLOWED_ORIGIN === origin;
 
     // Cache the secret on cold start
     if (!secret) {
@@ -23,7 +26,7 @@ exports.handler = async (event) => {
             password: secret.password,
             database: DB_NAME,
             waitForConnections: true,
-            connectionLimit: 10,  // Adjust based on your needs
+            connectionLimit: 10, // Adjust based on your needs
             queueLimit: 0,
         });
     }
@@ -39,12 +42,22 @@ exports.handler = async (event) => {
 
         return {
             statusCode: 200,
+            headers: {
+                'Access-Control-Allow-Origin': isAllowedOrigin ? origin : 'null',
+                'Access-Control-Allow-Methods': '*',
+                'Access-Control-Allow-Headers': '*',
+            },
             body: JSON.stringify(rows[0]),
         };
     } catch (error) {
         console.error('Database query failed:', error);
         return {
             statusCode: 500,
+            headers: {
+                'Access-Control-Allow-Origin': isAllowedOrigin ? origin : 'null',
+                'Access-Control-Allow-Methods': '*',
+                'Access-Control-Allow-Headers': '*',
+            },
             body: JSON.stringify({ error: 'Internal Server Error' }),
         };
     } finally {

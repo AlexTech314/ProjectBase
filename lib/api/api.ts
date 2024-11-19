@@ -76,9 +76,7 @@ export class Api extends Construct {
             handler: 'index.handler',
             code: Code.fromAsset('./api/cors'), // Directory with your CORS Lambda code
             environment: {
-                ALLOWED_ORIGIN: origin,
-                ALLOWED_METHODS: '*',
-                ALLOWED_HEADERS: 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                ALLOWED_ORIGIN: origin
             },
         });
 
@@ -106,5 +104,7 @@ export class Api extends Construct {
                 },
             ],
         });
+
+        this.mainLambda.addEnvironment("ALLOWED_ORIGIN", origin)
     }
 }

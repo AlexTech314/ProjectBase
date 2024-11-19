@@ -16,7 +16,11 @@ export default function Home() {
       console.log(`Logging NEXT_PUBLIC_MAIN_API_URL ${apiUrl}`);
 
       try {
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, {
+          headers: {
+            'X-Preflight-Enabled': 'true'
+          }
+        });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
