@@ -7,33 +7,30 @@ import { UI } from './ui/ui';
 
 
 export class ProjectBase extends Construct {
+  private vpc: VPCBase;
+  private relationalDb: RelationalDb;
+  private api: Api;
+  private ui: UI;
+
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
-    const vpcBase = new VPCBase(this, 'VPC');
 
-    const credentialsAndSecurityBase = new CredentialsAndSecurityBase(this, 'CredentialsAndSecurity', {
-      vpc: vpcBase.vpc
+    this.vpc = new VPCBase(this, 'VPC');
+
+    const relationalDb = new RelationalDb(this, 'RelationalDb', {
+      vpc: this.vpc.vpc
     })
 
-    const relationalDbBase = new RelationalDb(this, 'RelationalDb', {
-      vpc: vpcBase.vpc,
-      dbSecurityGroup: credentialsAndSecurityBase.dbSecurityGroup,
-      dbCredentialsSecret: credentialsAndSecurityBase.dbCredentialsSecret,
-      codebuildSecurityGroup: credentialsAndSecurityBase.codebuildSecurityGroup,
-    })
-
-    const apiStack = new Api(this, 'Api', {
-      vpc: vpcBase.vpc,
-      dbCluster: relationalDbBase.dbCluster,
-      dbCredentialsSecret: credentialsAndSecurityBase.dbCredentialsSecret,
-      lambdaSecurityGroup: credentialsAndSecurityBase.lambdaSecurityGroup
+    this.api = new Api(this, 'Api', {
+      vpc: this.vpc.vpc,
+      dbCluster: relationalDb.dbCluster
     });
 
-    new UI(this, 'UI', {
-      vpc: vpcBase.vpc,
-      uiSecurityGroup: credentialsAndSecurityBase.uiSecurityGroup,
-      apiUrl: apiStack.url
+    this.ui = new UI(this, 'UI', {
+      vpc: this.vpc.vpc
     })
+
+    this.api.addCorsHandler(this.ui.url)
   }
 }

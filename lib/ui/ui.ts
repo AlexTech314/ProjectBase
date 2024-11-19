@@ -10,35 +10,23 @@ import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
 
 interface UIProps {
-  vpc: Vpc;
-  uiSecurityGroup: SecurityGroup
-  apiUrl: string
+  vpc: Vpc
 }
 
 export class UI extends Construct {
-  public readonly apiUrl: string;
-  public readonly cloudFrontUrl: string; // New property to hold CloudFront URL
+  public readonly url: string; 
 
   constructor(scope: Construct, id: string, props: UIProps) {
     super(scope, id);
 
-    const { vpc, uiSecurityGroup, apiUrl } = props;
+    const { vpc } = props;
 
-    // --------------------------------------------
-    // 1. Create ECS Cluster
-    // --------------------------------------------
     const cluster = new Cluster(this, 'ECSCluster', { vpc });
 
-    // --------------------------------------------
-    // 2. Build Docker Image for UI
-    // --------------------------------------------
     const image = new DockerImageAsset(this, 'UIImage', {
       directory: './ui'
     });
 
-    // --------------------------------------------
-    // 3. Create Application Load Balanced Fargate Service
-    // --------------------------------------------
     const loadBalancedFargateService = new ApplicationLoadBalancedFargateService(this, 'Service', {
       cluster,
       memoryLimitMiB: 1024,
@@ -51,10 +39,7 @@ export class UI extends Construct {
         logDriver: LogDriver.awsLogs({ streamPrefix: 'UIImageStream' }),
         enableLogging: true,
         environment: {}
-      },
-      securityGroups: [
-        uiSecurityGroup
-      ]
+      }
     });
 
     // --------------------------------------------
@@ -97,7 +82,7 @@ export class UI extends Construct {
     });
 
     // Optionally, you can store the CloudFront URL in a class property
-    this.cloudFrontUrl = `https://${distribution.distributionDomainName}`;
+    this.url = `https://${distribution.distributionDomainName}`;
 
     // --------------------------------------------
     // 7. Add Cache Invalidation Custom Resource

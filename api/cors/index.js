@@ -1,0 +1,22 @@
+exports.handler = async (event) => {
+    const allowedOrigin = process.env.ALLOWED_ORIGIN;
+    const allowedMethods = process.env.ALLOWED_METHODS;
+    const allowedHeaders = process.env.ALLOWED_HEADERS;
+
+    const origin = event.headers.origin || '*';
+
+    // Check if the origin is allowed
+    const isAllowedOrigin = allowedOrigin === '*' || allowedOrigin === origin;
+
+    const response = {
+        statusCode: 200,
+        headers: {
+            'Access-Control-Allow-Origin': isAllowedOrigin ? origin : 'null',
+            'Access-Control-Allow-Methods': allowedMethods,
+            'Access-Control-Allow-Headers': allowedHeaders,
+        },
+        body: '',
+    };
+
+    return response;
+};

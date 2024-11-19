@@ -3,25 +3,26 @@ import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { BuildEnvironmentVariableType, BuildSpec, LinuxBuildImage, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
 import { CodeBuildAction, GitHubSourceAction, GitHubTrigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Artifact, Pipeline } from 'aws-cdk-lib/aws-codepipeline';
-import { SecurityGroup, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { AuroraMysqlEngineVersion, ClusterInstance, Credentials, DatabaseCluster, DatabaseClusterEngine, DatabaseSecret } from 'aws-cdk-lib/aws-rds';
-import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 
 interface RelationalDbProps {
-    vpc: Vpc;
-    dbSecurityGroup: SecurityGroup;
-    dbCredentialsSecret: DatabaseSecret;
-    codebuildSecurityGroup: SecurityGroup;
+    vpc: Vpc
 }
 
 export class RelationalDb extends Construct {
     public readonly dbCluster: DatabaseCluster;
+    public readonly liquibaseCodeBuild: PipelineProject;
 
     constructor(scope: Construct, id: string, props: RelationalDbProps) {
         super(scope, id);
 
-        const { vpc, dbSecurityGroup, dbCredentialsSecret, codebuildSecurityGroup } = props;
+        const { vpc } = props;
+
+        const dbCredentialsSecret = new DatabaseSecret(this, 'DBCredentialsSecret', {
+            username: 'admin',
+        });
 
         const dbCluster = new DatabaseCluster(this, 'Database', {
             engine: DatabaseClusterEngine.auroraMysql({ version: AuroraMysqlEngineVersion.VER_3_07_1 }),
@@ -30,7 +31,6 @@ export class RelationalDb extends Construct {
             }),
             defaultDatabaseName: 'base',
             credentials: Credentials.fromSecret(dbCredentialsSecret),
-            securityGroups: [dbSecurityGroup],
             vpcSubnets: {
                 subnetType: SubnetType.PRIVATE_ISOLATED,
             },
@@ -111,10 +111,11 @@ export class RelationalDb extends Construct {
                 },
             },
             vpc,
-            securityGroups: [codebuildSecurityGroup],
             subnetSelection: { subnetType: SubnetType.PRIVATE_WITH_EGRESS },
             buildSpec: buildSpec,
         });
+
+        this.liquibaseCodeBuild = project
 
         // Grant CodeBuild permissions to access the artifact bucket
         pipe.artifactBucket.grantReadWrite(project.role!);
@@ -129,7 +130,8 @@ export class RelationalDb extends Construct {
             })],
         });
 
-        dbCredentialsSecret.grantRead(project.role!)
+        dbCredentialsSecret.grantRead(this.liquibaseCodeBuild.role!)
+        dbCluster.connections.allowDefaultPortFrom(project)
     }
 }
 
