@@ -18,7 +18,7 @@ export default function Home() {
       try {
         const response = await fetch(apiUrl, {
           headers: {
-            'X-Preflight-Enabled': 'true'
+            'X-Foo-Bar': 'true'
           }
         });
         if (!response.ok) {
