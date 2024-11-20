@@ -5,6 +5,7 @@ import { Cluster, ContainerImage, LogDriver } from 'aws-cdk-lib/aws-ecs';
 import { ApplicationLoadBalancedFargateService } from 'aws-cdk-lib/aws-ecs-patterns';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as crypto from 'crypto';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Repository } from 'aws-cdk-lib/aws-ecr';
 import { BuildSpec, LinuxBuildImage, Project, Source } from 'aws-cdk-lib/aws-codebuild';
@@ -109,6 +110,8 @@ export class UI extends Construct {
       resources: ['*'],
     }));
 
+    const randomString = crypto.randomBytes(16).toString('hex');
+
     // Custom resource to trigger the build
     const buildTriggerResource = new CustomResource(this, 'BuildTriggerResource', {
       serviceToken: new Provider(this, 'CustomResourceProvider', {
@@ -116,6 +119,7 @@ export class UI extends Construct {
       }).serviceToken,
       properties: {
         ProjectName: codeBuildProject.projectName,
+        Trigger: randomString
       },
     });
 
