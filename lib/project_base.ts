@@ -36,6 +36,6 @@ export class ProjectBase extends Construct {
       produce: () => this.api.url
     })
 
-    this.api.addCorsHandler(allowedOrigin)
+    this.api.addCorsHandler()
   }
 }

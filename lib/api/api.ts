@@ -69,7 +69,7 @@ export class Api extends Construct {
         });
     }
 
-    public addCorsHandler(origin: string): void {
+    public addCorsHandler(origin: string = '*'): void {
         // 1. Create the CORS Lambda function
         const corsLambda = new Function(this, 'CorsLambdaFunction', {
             runtime: Runtime.NODEJS_LATEST, // Choose runtime as per your preference
