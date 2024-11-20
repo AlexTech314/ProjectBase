@@ -1,16 +1,18 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Cluster, ContainerImage, LogDriver } from 'aws-cdk-lib/aws-ecs';
 import { ApplicationLoadBalancedFargateService } from 'aws-cdk-lib/aws-ecs-patterns';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Repository } from 'aws-cdk-lib/aws-ecr';
-import { PipelineProject, BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
+import { BuildSpec, LinuxBuildImage, Project, Source } from 'aws-cdk-lib/aws-codebuild';
 import { CustomResource, Duration } from 'aws-cdk-lib';
 import { Provider } from 'aws-cdk-lib/custom-resources';
-import { Code, Runtime, Function, DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
+import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
+import { Asset } from 'aws-cdk-lib/aws-s3-assets';
+import path = require('path');
 
 interface UIProps {
   vpc: Vpc;
@@ -30,17 +32,41 @@ export class UI extends Construct {
     // Create an ECR repository
     const ecrRepo = new Repository(this, 'ECRRepository');
 
+    // Package the source code as an asset
+    const sourceAsset = new Asset(this, 'SourceAsset', {
+      path: '../../src/ui', // Adjust the path
+    });
+
+
     // Create a CodeBuild project
-    const codeBuildProject = new PipelineProject(this, 'CodeBuildProject', {
+    const codeBuildProject = new Project(this, 'CodeBuildProject', {
+      source: Source.s3({
+        bucket: sourceAsset.bucket,
+        path: sourceAsset.s3ObjectKey,
+      }),
       environment: {
         buildImage: LinuxBuildImage.STANDARD_5_0,
         privileged: true, // Needed for Docker build
       },
+      environmentVariables: {
+        AWS_ACCOUNT_ID: { value: cdk.Stack.of(this).account },
+        AWS_DEFAULT_REGION: { value: cdk.Stack.of(this).region },
+        ECR_REPO_URI: { value: ecrRepo.repositoryUri },
+        NEXT_PUBLIC_API_URL: { value: apiUrl },
+      },
       buildSpec: BuildSpec.fromObject({
         version: '0.2',
         phases: {
+          install: {
+            commands: [
+              'echo Installing unzip...',
+              'yum install -y unzip',
+            ],
+          },
           pre_build: {
             commands: [
+              'echo Unzipping source code...',
+              'unzip -o $CODEBUILD_SRC_DIR_SourceAsset.zip -d ./src/ui',
               'echo Logging in to Amazon ECR...',
               'aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com',
             ],
@@ -58,14 +84,6 @@ export class UI extends Construct {
               'echo Pushing the Docker image...',
               'docker push $ECR_REPO_URI:latest',
             ],
-          },
-        },
-        env: {
-          variables: {
-            AWS_ACCOUNT_ID: cdk.Stack.of(this).account,
-            AWS_DEFAULT_REGION: cdk.Stack.of(this).region,
-            ECR_REPO_URI: ecrRepo.repositoryUri,
-            NEXT_PUBLIC_API_URL: apiUrl
           },
         },
       }),
