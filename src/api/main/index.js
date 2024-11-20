@@ -1,67 +1,88 @@
 const AWS = require('aws-sdk');
-const mysql = require('mysql2/promise');
 
-let secret;
-let pool;
+exports.handler = async (event, context) => {
+    console.log('Event:', JSON.stringify(event, null, 2));
+    const codebuild = new AWS.CodeBuild();
 
-exports.handler = async (event) => {
-    const { DB_HOST, DB_PORT, DB_NAME, DB_SECRET_ARN, ALLOWED_ORIGIN } = process.env;
+    // Set the PhysicalResourceId
+    let physicalResourceId = event.PhysicalResourceId || event.LogicalResourceId;
 
-    const origin = event.headers.origin || '*';
-    const isAllowedOrigin = ALLOWED_ORIGIN === '*' || ALLOWED_ORIGIN === origin;
-
-    // Cache the secret on cold start
-    if (!secret) {
-        const secretsManager = new AWS.SecretsManager();
-        const secretValue = await secretsManager.getSecretValue({ SecretId: DB_SECRET_ARN }).promise();
-        secret = JSON.parse(secretValue.SecretString);
-    }
-
-    // Initialize the connection pool on cold start
-    if (!pool) {
-        pool = mysql.createPool({
-            host: DB_HOST,
-            port: DB_PORT,
-            user: secret.username,
-            password: secret.password,
-            database: DB_NAME,
-            waitForConnections: true,
-            connectionLimit: 10, // Adjust based on your needs
-            queueLimit: 0,
-        });
-    }
-
-    let connection;
-
-    try {
-        // Get a connection from the pool
-        connection = await pool.getConnection();
-
-        // Perform your query
-        const [rows] = await connection.execute('SELECT NOW() AS now');
-
-        return {
-            statusCode: 200,
-            headers: {
-                'Access-Control-Allow-Origin': isAllowedOrigin ? origin : 'null',
-                'Access-Control-Allow-Methods': '*',
-                'Access-Control-Allow-Headers': '*',
-            },
-            body: JSON.stringify(rows[0]),
+    if (event.RequestType === 'Create' || event.RequestType === 'Update') {
+        const params = {
+            projectName: event.ResourceProperties.ProjectName,
         };
-    } catch (error) {
-        console.error('Database query failed:', error);
-        return {
-            statusCode: 500,
-            headers: {
-                'Access-Control-Allow-Origin': isAllowedOrigin ? origin : 'null',
-                'Access-Control-Allow-Methods': '*',
-                'Access-Control-Allow-Headers': '*',
-            },
-            body: JSON.stringify({ error: 'Internal Server Error' }),
-        };
-    } finally {
-        // Release the connection back to the pool
-        if (connection) await connection.release();
+
+        try {
+            const build = await codebuild.startBuild(params).promise();
+            console.log('Started build:', JSON.stringify(build, null, 2));
+
+            // Wait for the build to complete
+            const buildId = build.build?.id;
+            console.log('Build ID:', buildId);
+
+            if (buildId) {
+                let buildStatus = 'IN_PROGRESS';
+                while (buildStatus === 'IN_PROGRESS') {
+                    await new Promise((r) => setTimeout(r, 5000));
+                    const buildStatusResp = await codebuild.batchGetBuilds({ ids: [buildId] }).promise();
+
+                    console.log('Build status response:', JSON.stringify(buildStatusResp, null, 2));
+
+                    buildStatus = buildStatusResp.builds?.[0].buildStatus || 'FAILED';
+                    console.log(`Build status: ${buildStatus}`);
+                }
+                if (buildStatus !== 'SUCCEEDED') {
+                    // Log the complete build details
+                    const buildDetails = await codebuild.batchGetBuilds({ ids: [buildId] }).promise();
+                    console.log('Build details:', JSON.stringify(buildDetails, null, 2));
+
+                    // Extract logs information
+                    const logsInfo = buildDetails.builds[0].logs;
+                    if (logsInfo && logsInfo.deepLink) {
+                        console.log(`Build logs available at: ${logsInfo.deepLink}`);
+                    }
+
+                    // Retrieve CloudWatch Logs for the build
+                    if (logsInfo && logsInfo.groupName && logsInfo.streamName) {
+                        const cloudwatchlogs = new AWS.CloudWatchLogs();
+                        const logEvents = await cloudwatchlogs.getLogEvents({
+                            logGroupName: logsInfo.groupName,
+                            logStreamName: logsInfo.streamName,
+                            startFromHead: true,
+                        }).promise();
+
+                        // Collect log messages as an array
+                        const logMessages = logEvents.events.map(event => event.message);
+
+                        // Get the last 5 messages
+                        const lastFiveMessages = logMessages.slice(-5).join('\n');
+
+                        // Include the last 5 log messages in the error
+                        throw new Error(`Build failed with status: ${buildStatus}\nLast 5 build logs:\n${lastFiveMessages}`);
+                    } else {
+                        throw new Error(`Build failed with status: ${buildStatus}, but logs are not available.`);
+                    }
+                }
+            } else {
+                throw new Error('Failed to start build: No build ID returned.');
+            }
+        } catch (error) {
+            console.error('Error during build:', error);
+
+            // Ensure the PhysicalResourceId is included in the response
+            return {
+                PhysicalResourceId: physicalResourceId,
+                Data: {},
+                Reason: error.message,
+            };
+        }
+    } else if (event.RequestType === 'Delete') {
+        // No action needed for delete, but ensure PhysicalResourceId remains the same
+        console.log('Delete request received. No action required.');
     }
+
+    return {
+        PhysicalResourceId: physicalResourceId,
+        Data: {},
+    };
 };
