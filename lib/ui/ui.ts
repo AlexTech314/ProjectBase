@@ -135,7 +135,9 @@ export class UI extends Construct {
         containerPort: 3000,
         logDriver: LogDriver.awsLogs({ streamPrefix: 'UIImageStream' }),
         enableLogging: true,
-        environment: {},
+        environment: {
+          "DEPLOYMENT_TRIGGER": randomString
+        },
       },
     });
 
