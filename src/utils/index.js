@@ -39,7 +39,23 @@ exports.handler = async (event, context) => {
                         console.log(`Build logs available at: ${logsInfo.deepLink}`);
                     }
 
-                    throw new Error(`Build failed with status: ${buildStatus}`);
+                    // Retrieve CloudWatch Logs for the build
+                    if (logsInfo && logsInfo.groupName && logsInfo.streamName) {
+                        const cloudwatchlogs = new AWS.CloudWatchLogs();
+                        const logEvents = await cloudwatchlogs.getLogEvents({
+                            logGroupName: logsInfo.groupName,
+                            logStreamName: logsInfo.streamName,
+                            startFromHead: true,
+                        }).promise();
+
+                        // Collect log messages
+                        const logMessages = logEvents.events.map(event => event.message).join('\n');
+
+                        // Include log messages in the error
+                        throw new Error(`Build failed with status: ${buildStatus}\nBuild logs:\n${logMessages}`);
+                    } else {
+                        throw new Error(`Build failed with status: ${buildStatus}, but logs are not available.`);
+                    }
                 }
             } else {
                 throw new Error('Failed to start build: No build ID returned.');

@@ -104,10 +104,15 @@ export class UI extends Construct {
     });
 
 
-    // Grant permissions to the Lambda function
     buildTriggerFunction.addToRolePolicy(new PolicyStatement({
-      actions: ['codebuild:StartBuild', 'codebuild:BatchGetBuilds'],
-      resources: [codeBuildProject.projectArn],
+      actions: [
+        'codebuild:StartBuild',
+        'codebuild:BatchGetBuilds',
+        'logs:GetLogEvents',
+        'logs:DescribeLogStreams',
+        'logs:DescribeLogGroups',
+      ],
+      resources: ['*'],
     }));
 
     // Custom resource provider
