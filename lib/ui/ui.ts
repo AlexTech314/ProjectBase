@@ -34,7 +34,7 @@ export class UI extends Construct {
 
     // Package the source code as an asset
     const sourceAsset = new Asset(this, 'SourceAsset', {
-      path: '../../src/ui', // Adjust the path
+      path: './src/ui', // Adjust the path
     });
 
 
