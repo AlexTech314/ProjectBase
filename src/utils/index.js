@@ -1,7 +1,7 @@
-import { CodeBuild } from 'aws-sdk';
+const AWS = require('aws-sdk');
 
 exports.handler = async(event, context) => {
-  const codebuild = new CodeBuild();
+  const codebuild = new AWS.CodeBuild();
 
   if (event.RequestType === 'Create' || event.RequestType === 'Update') {
     const params = {
