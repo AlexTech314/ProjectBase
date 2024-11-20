@@ -1,6 +1,6 @@
 import { CodeBuild } from 'aws-sdk';
 
-export async function handler(event, context) {
+exports.handler = async(event, context) => {
   const codebuild = new CodeBuild();
 
   if (event.RequestType === 'Create' || event.RequestType === 'Update') {

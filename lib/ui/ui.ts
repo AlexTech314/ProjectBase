@@ -80,10 +80,10 @@ export class UI extends Construct {
       })
     );
 
-    const buildTriggerFunction = new Function(this, 'CorsLambdaFunction', {
+    const buildTriggerFunction = new Function(this, 'BuildTriggerLambdaFunction', {
       runtime: Runtime.NODEJS_LATEST, // Choose runtime as per your preference
       handler: 'index.handler',
-      code: Code.fromAsset('./src/utils/'), // Directory with your CORS Lambda code
+      code: Code.fromAsset('./src/utils'), // Directory with your CORS Lambda code
       timeout: Duration.minutes(15)
   });
 
