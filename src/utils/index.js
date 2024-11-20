@@ -48,12 +48,14 @@ exports.handler = async (event, context) => {
                             startFromHead: true,
                         }).promise();
 
-                        // Collect log messages
-                        const logMessages = logEvents.events.map(event => event.message).join('\n');
-                        console.log(logMessages)
+                        // Collect log messages as an array
+                        const logMessages = logEvents.events.map(event => event.message);
 
-                        // Include log messages in the error
-                        throw new Error(`Build failed with status: ${buildStatus}`);
+                        // Get the last 5 messages
+                        const lastFiveMessages = logMessages.slice(-5).join('\n');
+
+                        // Include the last 5 log messages in the error
+                        throw new Error(`Build failed with status: ${buildStatus}\nLast 5 build logs:\n${lastFiveMessages}`);
                     } else {
                         throw new Error(`Build failed with status: ${buildStatus}, but logs are not available.`);
                     }
