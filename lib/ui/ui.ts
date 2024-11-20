@@ -12,7 +12,6 @@ import { CustomResource, Duration } from 'aws-cdk-lib';
 import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId, Provider } from 'aws-cdk-lib/custom-resources';
 import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import { Asset } from 'aws-cdk-lib/aws-s3-assets';
-import path = require('path');
 
 interface UIProps {
   vpc: Vpc;
@@ -110,14 +109,11 @@ export class UI extends Construct {
       resources: ['*'],
     }));
 
-    // Custom resource provider
-    const customResourceProvider = new Provider(this, 'CustomResourceProvider', {
-      onEventHandler: buildTriggerFunction,
-    });
-
     // Custom resource to trigger the build
     const buildTriggerResource = new CustomResource(this, 'BuildTriggerResource', {
-      serviceToken: customResourceProvider.serviceToken,
+      serviceToken: new Provider(this, 'CustomResourceProvider', {
+        onEventHandler: buildTriggerFunction
+      }).serviceToken,
       properties: {
         ProjectName: codeBuildProject.projectName,
       },
