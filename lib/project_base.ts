@@ -15,7 +15,6 @@ export class ProjectBase extends Construct {
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
-
     this.vpc = new VPCBase(this, 'VPC');
 
     this.relationalDb = new RelationalDb(this, 'RelationalDb', {
@@ -32,10 +31,7 @@ export class ProjectBase extends Construct {
       apiUrl: this.api.url
     })
 
-    const allowedOrigin = Lazy.string({
-      produce: () => this.api.url
-    })
-
-    this.api.addCorsHandler()
+    // TODO: CustomResource to handle cors! It should probably run a lambda that iterates through all
+    // methods and adds an OPTIONS method, and adds an ALLOWED_ORIGIN var to each lamba...
   }
 }
