@@ -9,7 +9,7 @@ import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Repository } from 'aws-cdk-lib/aws-ecr';
 import { BuildSpec, LinuxBuildImage, Project, Source } from 'aws-cdk-lib/aws-codebuild';
 import { CustomResource, Duration } from 'aws-cdk-lib';
-import { Provider } from 'aws-cdk-lib/custom-resources';
+import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId, Provider } from 'aws-cdk-lib/custom-resources';
 import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import { Asset } from 'aws-cdk-lib/aws-s3-assets';
 import path = require('path');
@@ -59,34 +59,29 @@ export class UI extends Construct {
         phases: {
           install: {
             commands: [
-              'echo Installing unzip...',
-              'apt-get update && apt-get install -y unzip',
+              'echo Install phase: no actions required.',
             ],
           },
           pre_build: {
             commands: [
-              'echo Unzipping source code...',
-              'unzip -o $CODEBUILD_SRC_DIR_SourceAsset.zip -d ./src/ui',
-              'echo Logging in to Amazon ECR...',
+              'echo Pre-build phase: Logging in to Amazon ECR...',
               'aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com',
             ],
           },
           build: {
             commands: [
-              'echo Build started on `date`',
-              'echo Building the Docker image...',
-              'docker build --build-arg NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL -t $ECR_REPO_URI:latest ./src/ui',
+              'echo Build phase: Building the Docker image...',
+              'docker build --build-arg NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL -t $ECR_REPO_URI:latest $CODEBUILD_SRC_DIR',
             ],
           },
           post_build: {
             commands: [
-              'echo Build completed on `date`',
-              'echo Pushing the Docker image...',
+              'echo Post-build phase: Pushing the Docker image...',
               'docker push $ECR_REPO_URI:latest',
             ],
           },
         },
-      }),
+      })
     });
 
     // Grant permissions to CodeBuild
@@ -180,12 +175,26 @@ export class UI extends Construct {
 
     this.url = `https://${distribution.distributionDomainName}`;
 
-    // // Cache invalidation
-    // new cdk.CustomResource(this, 'CacheInvalidation', {
-    //   serviceToken: customResourceProvider.serviceToken,
-    //   properties: {
-    //     DistributionId: distribution.distributionId,
-    //   },
-    // });
+    // Cache invalidation using AwsCustomResource
+    new AwsCustomResource(this, 'InvalidateCache', {
+      onUpdate: { // Called during resource creation
+        service: 'CloudFront',
+        action: 'createInvalidation',
+        parameters: {
+          DistributionId: distribution.distributionId,
+          InvalidationBatch: {
+            CallerReference: Date.now().toString(),
+            Paths: {
+              Quantity: 1,
+              Items: ['/*'],
+            },
+          },
+        },
+        physicalResourceId: PhysicalResourceId.of(Date.now().toString()), // Always create a new invalidation
+      },
+      policy: AwsCustomResourcePolicy.fromSdkCalls({
+        resources: [`arn:aws:cloudfront::${cdk.Stack.of(this).account}:distribution/${distribution.distributionId}`],
+      }),
+    });
   }
 }
