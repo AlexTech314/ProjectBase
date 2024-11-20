@@ -3,6 +3,7 @@ import { VPCBase } from './vpc/vpc_base';
 import { RelationalDb } from './db/relational_db';
 import { Api } from './api/api';
 import { UI } from './ui/ui';
+import { Lazy } from 'aws-cdk-lib';
 
 
 export class ProjectBase extends Construct {
@@ -31,6 +32,10 @@ export class ProjectBase extends Construct {
       apiUrl: this.api.url
     })
 
-    this.api.addCorsHandler(this.ui.url)
+    const allowedOrigin = Lazy.string({
+      produce: () => this.api.url
+    })
+
+    this.api.addCorsHandler(allowedOrigin)
   }
 }
