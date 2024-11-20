@@ -45,7 +45,7 @@ export class UI extends Construct {
         path: sourceAsset.s3ObjectKey,
       }),
       environment: {
-        buildImage: LinuxBuildImage.STANDARD_5_0,
+        buildImage: LinuxBuildImage.STANDARD_7_0,
         privileged: true, // Needed for Docker build
       },
       environmentVariables: {
@@ -60,7 +60,7 @@ export class UI extends Construct {
           install: {
             commands: [
               'echo Installing unzip...',
-              'yum install -y unzip',
+              'apt-get update && apt-get install -y unzip',
             ],
           },
           pre_build: {
