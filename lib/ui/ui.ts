@@ -10,7 +10,7 @@ import { Repository } from 'aws-cdk-lib/aws-ecr';
 import { PipelineProject, BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
 import { CustomResource, Duration } from 'aws-cdk-lib';
 import { Provider } from 'aws-cdk-lib/custom-resources';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { Code, Runtime, Function } from 'aws-cdk-lib/aws-lambda';
 
 interface UIProps {
   vpc: Vpc;
@@ -80,12 +80,16 @@ export class UI extends Construct {
       })
     );
 
-    // Lambda function to trigger the CodeBuild project
-    const buildTriggerFunction = new NodejsFunction(this, 'BuildTriggerFunction', {
-      entry: './src/utils/index.js',
-      handler: 'handler',
+    const buildTriggerFunction = new Function(this, 'CorsLambdaFunction', {
+      runtime: Runtime.NODEJS_LATEST, // Choose runtime as per your preference
+      handler: 'index.handler',
+      code: Code.fromAsset('./src/utils/'), // Directory with your CORS Lambda code
+      environment: {
+          ALLOWED_ORIGIN: origin
+      },
       timeout: Duration.minutes(15),
-    });
+  });
+
 
     // Grant permissions to the Lambda function
     codeBuildProject.role!.grant(buildTriggerFunction.role!, 'codebuild:StartBuild', 'codebuild:BatchGetBuilds');
