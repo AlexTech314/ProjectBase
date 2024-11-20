@@ -12,8 +12,8 @@ export default function Home() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const apiUrl: string = process.env.NEXT_PUBLIC_MAIN_API_URL || '';
-      console.log(`Logging NEXT_PUBLIC_MAIN_API_URL ${apiUrl}`);
+      const apiUrl: string = process.env.NEXT_PUBLIC_API_URL || '';
+      console.log(`Logging NEXT_PUBLIC_API_URL ${apiUrl}`);
 
       try {
         const response = await fetch(apiUrl, {
