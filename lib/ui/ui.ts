@@ -49,7 +49,7 @@ export class UI extends Construct {
             commands: [
               'echo Build started on `date`',
               'echo Building the Docker image...',
-              'docker build -t $ECR_REPO_URI:latest ./src/ui',
+              'docker build --build-arg NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL -t $ECR_REPO_URI:latest ./src/ui',
             ],
           },
           post_build: {
@@ -84,10 +84,7 @@ export class UI extends Construct {
       runtime: Runtime.NODEJS_LATEST, // Choose runtime as per your preference
       handler: 'index.handler',
       code: Code.fromAsset('./src/utils/'), // Directory with your CORS Lambda code
-      environment: {
-          ALLOWED_ORIGIN: origin
-      },
-      timeout: Duration.minutes(15),
+      timeout: Duration.minutes(15)
   });
 
 
