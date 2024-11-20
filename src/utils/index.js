@@ -4,6 +4,9 @@ exports.handler = async (event, context) => {
     console.log('Event:', JSON.stringify(event, null, 2));
     const codebuild = new AWS.CodeBuild();
 
+    // Set the PhysicalResourceId
+    let physicalResourceId = event.PhysicalResourceId || event.LogicalResourceId;
+
     if (event.RequestType === 'Create' || event.RequestType === 'Update') {
         const params = {
             projectName: event.ResourceProperties.ProjectName,
@@ -65,12 +68,21 @@ exports.handler = async (event, context) => {
             }
         } catch (error) {
             console.error('Error during build:', error);
-            throw error;
+
+            // Ensure the PhysicalResourceId is included in the response
+            return {
+                PhysicalResourceId: physicalResourceId,
+                Data: {},
+                Reason: error.message,
+            };
         }
+    } else if (event.RequestType === 'Delete') {
+        // No action needed for delete, but ensure PhysicalResourceId remains the same
+        console.log('Delete request received. No action required.');
     }
 
     return {
-        PhysicalResourceId: context.logStreamName,
+        PhysicalResourceId: physicalResourceId,
         Data: {},
     };
 };
