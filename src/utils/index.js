@@ -50,9 +50,10 @@ exports.handler = async (event, context) => {
 
                         // Collect log messages
                         const logMessages = logEvents.events.map(event => event.message).join('\n');
+                        console.log(logMessages)
 
                         // Include log messages in the error
-                        throw new Error(`Build failed with status: ${buildStatus}\nBuild logs:\n${logMessages}`);
+                        throw new Error(`Build failed with status: ${buildStatus}`);
                     } else {
                         throw new Error(`Build failed with status: ${buildStatus}, but logs are not available.`);
                     }
