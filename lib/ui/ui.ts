@@ -87,7 +87,10 @@ export class UI extends Construct {
 
 
     // Grant permissions to the Lambda function
-    codeBuildProject.role!.grant(buildTriggerFunction.role!, 'codebuild:StartBuild', 'codebuild:BatchGetBuilds');
+    buildTriggerFunction.addToRolePolicy(new PolicyStatement({
+      actions: ['codebuild:StartBuild', 'codebuild:BatchGetBuilds'],
+      resources: [codeBuildProject.projectArn],
+    }));
 
     // Custom resource provider
     const customResourceProvider = new Provider(this, 'CustomResourceProvider', {
