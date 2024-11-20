@@ -39,7 +39,7 @@ export class UI extends Construct {
 
 
     // Create a CodeBuild project
-    const codeBuildProject = new Project(this, 'CodeBuildProject', {
+    const codeBuildProject = new Project(this, 'UICodeBuildProject', {
       source: Source.s3({
         bucket: sourceAsset.bucket,
         path: sourceAsset.s3ObjectKey,
@@ -98,7 +98,7 @@ export class UI extends Construct {
       })
     );
 
-    const buildTriggerFunction = new DockerImageFunction(this, 'ApiLambdaFunction', {
+    const buildTriggerFunction = new DockerImageFunction(this, 'BuildTriggerLambdaFunction', {
       code: DockerImageCode.fromImageAsset('./src/utils'),
       timeout: Duration.minutes(15)
     });
