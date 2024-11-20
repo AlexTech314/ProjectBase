@@ -27,7 +27,8 @@ export class ProjectBase extends Construct {
     });
 
     this.ui = new UI(this, 'UI', {
-      vpc: this.vpc.vpc
+      vpc: this.vpc.vpc,
+      apiUrl: this.api.url
     })
 
     this.api.addCorsHandler(this.ui.url)
