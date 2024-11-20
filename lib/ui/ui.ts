@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { Vpc } from 'aws-cdk-lib/aws-ec2';
+import { SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Cluster, ContainerImage, LogDriver } from 'aws-cdk-lib/aws-ecs';
 import { ApplicationLoadBalancedFargateService } from 'aws-cdk-lib/aws-ecs-patterns';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
@@ -10,7 +10,7 @@ import { Repository } from 'aws-cdk-lib/aws-ecr';
 import { PipelineProject, BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
 import { CustomResource, Duration } from 'aws-cdk-lib';
 import { Provider } from 'aws-cdk-lib/custom-resources';
-import { Code, Runtime, Function } from 'aws-cdk-lib/aws-lambda';
+import { Code, Runtime, Function, DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 
 interface UIProps {
   vpc: Vpc;
@@ -80,12 +80,10 @@ export class UI extends Construct {
       })
     );
 
-    const buildTriggerFunction = new Function(this, 'BuildTriggerLambdaFunction', {
-      runtime: Runtime.NODEJS_LATEST, // Choose runtime as per your preference
-      handler: 'index.handler',
-      code: Code.fromAsset('./src/utils'), // Directory with your CORS Lambda code
+    const buildTriggerFunction = new DockerImageFunction(this, 'ApiLambdaFunction', {
+      code: DockerImageCode.fromImageAsset('./src/utils'),
       timeout: Duration.minutes(15)
-  });
+    });
 
 
     // Grant permissions to the Lambda function
