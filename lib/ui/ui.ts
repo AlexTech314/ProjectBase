@@ -180,12 +180,12 @@ export class UI extends Construct {
 
     this.url = `https://${distribution.distributionDomainName}`;
 
-    // Cache invalidation
-    new cdk.CustomResource(this, 'CacheInvalidation', {
-      serviceToken: customResourceProvider.serviceToken,
-      properties: {
-        DistributionId: distribution.distributionId,
-      },
-    });
+    // // Cache invalidation
+    // new cdk.CustomResource(this, 'CacheInvalidation', {
+    //   serviceToken: customResourceProvider.serviceToken,
+    //   properties: {
+    //     DistributionId: distribution.distributionId,
+    //   },
+    // });
   }
 }
