@@ -69,8 +69,6 @@ export class RelationalDb extends Construct {
         // Define the pipeline
         const pipe = new Pipeline(this, 'MyPipeline');
 
-        pipe.node.addDependency(this.dbCluster)
-
         // Retrieve GitHub token from Secrets Manager
         const githubToken = Secret.fromSecretNameV2(
             this, 'GitHubToken', 'github-token'
