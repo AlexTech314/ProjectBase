@@ -95,5 +95,6 @@ export class ProjectBase extends Construct {
 
     // Add the dependency
     corsDeploymentCustomResource.node.addDependency(this.ui);
+    corsDeploymentCustomResource.node.addDependency(this.api);
   }
 }
