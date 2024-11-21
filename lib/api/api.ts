@@ -18,7 +18,7 @@ interface ApiProps {
 
 export class Api extends Construct {
     public readonly apiGateway: RestApi;
-    private readonly mainLambda: DockerImageFunction;
+    public readonly mainLambda: DockerImageFunction;
 
     constructor(scope: Construct, id: string, props: ApiProps) {
         super(scope, id);

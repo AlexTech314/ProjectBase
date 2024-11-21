@@ -63,13 +63,12 @@ export class ProjectBase extends Construct {
     );
 
     // Permissions for updating Lambda function configurations
+    const lambdaFunctionArns = [this.api.mainLambda.functionArn];
+
     corsDeploymentLambda.addToRolePolicy(
       new PolicyStatement({
-        actions: [
-          'lambda:GetFunctionConfiguration',
-          'lambda:UpdateFunctionConfiguration',
-        ],
-        resources: ['*'], // You can narrow this down if you have a naming convention
+        actions: ['lambda:GetFunctionConfiguration', 'lambda:UpdateFunctionConfiguration'],
+        resources: lambdaFunctionArns,
       })
     );
 
@@ -79,17 +78,18 @@ export class ProjectBase extends Construct {
     });
 
     // Custom resource to handle CORS
-    const corsDeploymentCustomReousrce = new CustomResource(this, 'CorsUpdateCustomResource', {
+    const corsDeploymentCustomResource = new CustomResource(this, 'CorsUpdateCustomResource', {
       serviceToken: corsCustomResourceProvider.serviceToken,
       properties: {
         RestApiId: this.api.apiGateway.restApiId,
         AllowedOrigin: this.ui.url,
         StageName: 'prod', // Replace with your actual stage name if different
+        LambdaFunctionArns: lambdaFunctionArns,
         Trigger: this.deploymentHash, // Ensures the custom resource runs on every deployment
       },
     });
 
-    // **Add the dependency here**
-    corsDeploymentCustomReousrce.node.addDependency(this.ui);
+    // Add the dependency
+    corsDeploymentCustomResource.node.addDependency(this.ui);
   }
 }

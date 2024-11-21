@@ -13,6 +13,7 @@ exports.handler = async (event, context) => {
     const restApiId = event.ResourceProperties.RestApiId;
     const allowedOrigin = event.ResourceProperties.AllowedOrigin;
     const stageName = event.ResourceProperties.StageName || 'prod';
+    const lambdaFunctionArns = event.ResourceProperties.LambdaFunctionArns;
 
     try {
       // Step 1: Get all resources of the API
@@ -28,8 +29,6 @@ exports.handler = async (event, context) => {
 
       const resources = await getResourcesRecursively();
       console.log('API Resources:', JSON.stringify(resources, null, 2));
-
-      const lambdaFunctionArnsSet = new Set();
 
       // Step 2: Iterate through resources and methods
       for (const resource of resources) {
@@ -94,34 +93,12 @@ exports.handler = async (event, context) => {
           }).promise();
         }
 
-        // Update existing methods to include CORS headers and collect Lambda ARNs
+        // Update existing methods to include CORS headers
         if (resource.resourceMethods) {
           const methods = Object.keys(resource.resourceMethods).filter((m) => m !== 'OPTIONS');
 
           for (const method of methods) {
             console.log(`Processing method ${method} for resource ${resourcePath}`);
-
-            // Get integration to find the Lambda function ARN
-            const integration = await apigateway.getIntegration({
-              restApiId,
-              resourceId,
-              httpMethod: method,
-            }).promise();
-
-            console.log(`Integration for method ${method}:`, JSON.stringify(integration, null, 2));
-
-            // Handle both 'AWS' and 'AWS_PROXY' integration types
-            if ((integration.type === 'AWS' || integration.type === 'AWS_PROXY') && integration.uri.includes('lambda:')) {
-              console.log(`Integration URI: ${integration.uri}`);
-              // Extract the Lambda function ARN from the integration URI
-              const uriParts = integration.uri.split(':');
-              const functionArnPart = uriParts.slice(uriParts.indexOf('functions') + 1).join(':');
-              const functionArn = functionArnPart.split('/')[0];
-              console.log(`Extracted function ARN: ${functionArn}`);
-              lambdaFunctionArnsSet.add(functionArn);
-            } else {
-              console.log(`Integration type is not AWS or AWS_PROXY or does not include lambda`);
-            }
 
             // Add response parameters to method response
             try {
@@ -207,7 +184,6 @@ exports.handler = async (event, context) => {
       }).promise();
 
       // Step 4: Update ALLOWED_ORIGIN environment variable in Lambda functions
-      const lambdaFunctionArns = Array.from(lambdaFunctionArnsSet);
       console.log('Lambda Functions to update:', lambdaFunctionArns);
 
       for (const functionArn of lambdaFunctionArns) {
