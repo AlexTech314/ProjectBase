@@ -26,16 +26,22 @@ export class ProjectBase extends Construct {
       vpc: this.vpc.vpc,
     });
 
+    this.relationalDb.node.addDependency(this.vpc)
+
     this.api = new Api(this, 'Api', {
       vpc: this.vpc.vpc,
       dbCluster: this.relationalDb.dbCluster,
     });
+
+    this.api.node.addDependency(this.relationalDb)
 
     this.ui = new UI(this, 'UI', {
       vpc: this.vpc.vpc,
       apiUrl: this.api.apiGateway.url,
       deploymentHash: this.deploymentHash,
     });
+
+    this.ui.node.addDependency(this.api)
 
     // Create the Lambda function for handling CORS
     const corsDeploymentLambda = new DockerImageFunction(this, 'CorsDeploymentLambda', {
@@ -78,7 +84,7 @@ export class ProjectBase extends Construct {
     });
 
     // Custom resource to handle CORS
-    new CustomResource(this, 'CorsUpdateCustomResource', {
+    const corsDeploymentCustomReousrce = new CustomResource(this, 'CorsUpdateCustomResource', {
       serviceToken: corsCustomResourceProvider.serviceToken,
       properties: {
         RestApiId: this.api.apiGateway.restApiId,
@@ -87,5 +93,7 @@ export class ProjectBase extends Construct {
         Trigger: this.deploymentHash, // Ensures the custom resource runs on every deployment
       },
     });
+
+    corsDeploymentCustomReousrce.node.addDependency(this.ui)
   }
 }
