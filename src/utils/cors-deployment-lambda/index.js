@@ -108,12 +108,20 @@ exports.handler = async (event, context) => {
               httpMethod: method,
             }).promise();
 
+            console.log(`Integration for method ${method}:`, JSON.stringify(integration, null, 2));
+
             if (integration.type === 'AWS' && integration.uri.includes('lambda:path')) {
-              // Extract the Lambda function ARN from the integration URI
-              const uriParts = integration.uri.split(':');
-              const functionArn = uriParts.slice(uriParts.indexOf('functions') + 1, uriParts.indexOf('invocations')).join(':');
-              console.log(`Found Lambda function ARN: ${functionArn}`);
-              lambdaFunctionArnsSet.add(functionArn);
+              console.log(`Integration URI: ${integration.uri}`);
+              const matches = integration.uri.match(/functions\/(arn:[^\/]+)/);
+              if (matches && matches[1]) {
+                const functionArn = matches[1];
+                console.log(`Extracted function ARN: ${functionArn}`);
+                lambdaFunctionArnsSet.add(functionArn);
+              } else {
+                console.error(`Could not extract function ARN from URI: ${integration.uri}`);
+              }
+            } else {
+              console.log(`Integration type is not AWS or does not include lambda:path`);
             }
 
             // Add response parameters to method response
@@ -132,6 +140,7 @@ exports.handler = async (event, context) => {
                 ],
               }).promise();
             } catch (error) {
+              console.error(`Error updating method response for ${method} ${resourcePath}:`, error);
               if (error.code === 'NotFoundException') {
                 // Create method response if it doesn't exist
                 await apigateway.putMethodResponse({
@@ -167,6 +176,7 @@ exports.handler = async (event, context) => {
                 ],
               }).promise();
             } catch (error) {
+              console.error(`Error updating integration response for ${method} ${resourcePath}:`, error);
               if (error.code === 'NotFoundException') {
                 // Create integration response if it doesn't exist
                 await apigateway.putIntegrationResponse({
@@ -190,6 +200,7 @@ exports.handler = async (event, context) => {
       }
 
       // Step 3: Deploy the API to apply the changes
+      console.log(`Deploying API to stage ${stageName}`);
       await apigateway.createDeployment({
         restApiId,
         stageName,
@@ -203,31 +214,40 @@ exports.handler = async (event, context) => {
       for (const functionArn of lambdaFunctionArns) {
         console.log(`Updating environment variable for Lambda function: ${functionArn}`);
 
-        // Get current function configuration
-        const functionConfig = await lambda.getFunctionConfiguration({
-          FunctionName: functionArn,
-        }).promise();
+        try {
+          // Get current function configuration
+          const functionConfig = await lambda.getFunctionConfiguration({
+            FunctionName: functionArn,
+          }).promise();
+          console.log(`Current function configuration:`, JSON.stringify(functionConfig, null, 2));
 
-        // Update environment variables
-        const newEnv = {
-          ...functionConfig.Environment?.Variables,
-          ALLOWED_ORIGIN: allowedOrigin,
-        };
+          // Update environment variables
+          const newEnv = {
+            ...functionConfig.Environment?.Variables,
+            ALLOWED_ORIGIN: allowedOrigin,
+          };
 
-        // Update function configuration
-        await lambda.updateFunctionConfiguration({
-          FunctionName: functionArn,
-          Environment: {
-            Variables: newEnv,
-          },
-        }).promise();
+          console.log(`New environment variables:`, newEnv);
+
+          // Update function configuration
+          await lambda.updateFunctionConfiguration({
+            FunctionName: functionArn,
+            Environment: {
+              Variables: newEnv,
+            },
+          }).promise();
+
+          console.log(`Successfully updated environment variables for ${functionArn}`);
+        } catch (error) {
+          console.error(`Error updating environment variables for ${functionArn}:`, error);
+          throw error;
+        }
       }
     } catch (error) {
       console.error('Error:', error);
       throw error;
     }
   } else if (event.RequestType === 'Delete') {
-    // No action needed for delete, but ensure PhysicalResourceId remains the same
     console.log('Delete request received. No action required.');
   }
 
