@@ -18,7 +18,7 @@ export default function Home() {
       try {
         const response = await fetch(apiUrl, {
           headers: {
-            'X-Foo-Bar': 'true'
+            'Authorization': 'xxx-xxx-xxx'
           }
         });
         if (!response.ok) {
