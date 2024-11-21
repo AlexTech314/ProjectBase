@@ -29,6 +29,7 @@ export class ProjectBase extends Construct {
     this.api = new Api(this, 'Api', {
       vpc: this.vpc.vpc,
       dbCluster: this.relationalDb.dbCluster,
+      deploymentHash: this.deploymentHash
     });
 
 
@@ -42,6 +43,9 @@ export class ProjectBase extends Construct {
     const corsDeploymentLambda = new DockerImageFunction(this, 'CorsDeploymentLambda', {
       code: DockerImageCode.fromImageAsset('./src/utils/cors-deployment-lambda'),
       timeout: cdk.Duration.minutes(15),
+      environment: {
+        DEPLOYMENT_HASH: this.deploymentHash
+      }
     });
 
     // Add necessary permissions to the Lambda function
