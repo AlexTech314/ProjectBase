@@ -3,10 +3,15 @@ import { VPCBase } from './vpc/vpc_base';
 import { RelationalDb } from './db/relational_db';
 import { Api } from './api/api';
 import { UI } from './ui/ui';
-import { Lazy } from 'aws-cdk-lib';
-
+import { CustomResource } from 'aws-cdk-lib';
+import { Provider } from 'aws-cdk-lib/custom-resources';
+import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
+import * as crypto from 'crypto';
+import * as cdk from 'aws-cdk-lib';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 export class ProjectBase extends Construct {
+  private deploymentHash: string = crypto.randomBytes(16).toString('hex');
   private vpc: VPCBase;
   private relationalDb: RelationalDb;
   private api: Api;
@@ -18,20 +23,69 @@ export class ProjectBase extends Construct {
     this.vpc = new VPCBase(this, 'VPC');
 
     this.relationalDb = new RelationalDb(this, 'RelationalDb', {
-      vpc: this.vpc.vpc
-    })
+      vpc: this.vpc.vpc,
+    });
 
     this.api = new Api(this, 'Api', {
       vpc: this.vpc.vpc,
-      dbCluster: this.relationalDb.dbCluster
+      dbCluster: this.relationalDb.dbCluster,
     });
 
     this.ui = new UI(this, 'UI', {
       vpc: this.vpc.vpc,
-      apiUrl: this.api.url
-    })
+      apiUrl: this.api.apiGateway.url,
+      deploymentHash: this.deploymentHash,
+    });
 
-    // TODO: CustomResource to handle cors! It should probably run a lambda that iterates through all
-    // methods and adds an OPTIONS method, and adds an ALLOWED_ORIGIN var to each lamba...
+    // Create the Lambda function for handling CORS
+    const corsDeploymentLambda = new DockerImageFunction(this, 'CorsDeploymentLambda', {
+      code: DockerImageCode.fromImageAsset('./src/utils/cors-deployment-lambda'),
+      timeout: cdk.Duration.minutes(15),
+    });
+
+    // Add necessary permissions to the Lambda function
+
+    // Permissions for API Gateway to get and update resources and integrations
+    corsDeploymentLambda.addToRolePolicy(
+      new PolicyStatement({
+        actions: [
+          'apigateway:GET',
+          'apigateway:PUT',
+          'apigateway:POST',
+          'apigateway:DELETE',
+          'apigateway:PATCH',
+        ],
+        resources: [
+          `arn:aws:apigateway:${cdk.Stack.of(this).region}::/restapis/${this.api.apiGateway.restApiId}/*`,
+        ],
+      })
+    );
+
+    // Permissions for updating Lambda function configurations
+    corsDeploymentLambda.addToRolePolicy(
+      new PolicyStatement({
+        actions: [
+          'lambda:GetFunctionConfiguration',
+          'lambda:UpdateFunctionConfiguration',
+        ],
+        resources: ['*'], // You can narrow this down if you have a naming convention
+      })
+    );
+
+    // Create a custom resource provider
+    const corsCustomResourceProvider = new Provider(this, 'CorsCustomResourceProvider', {
+      onEventHandler: corsDeploymentLambda,
+    });
+
+    // Custom resource to handle CORS
+    new CustomResource(this, 'CorsUpdateCustomResource', {
+      serviceToken: corsCustomResourceProvider.serviceToken,
+      properties: {
+        RestApiId: this.api.apiGateway.restApiId,
+        AllowedOrigin: this.ui.url,
+        StageName: 'prod', // Replace with your actual stage name if different
+        Trigger: this.deploymentHash, // Ensures the custom resource runs on every deployment
+      },
+    });
   }
 }

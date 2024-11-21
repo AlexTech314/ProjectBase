@@ -5,7 +5,6 @@ import { Cluster, ContainerImage, LogDriver } from 'aws-cdk-lib/aws-ecs';
 import { ApplicationLoadBalancedFargateService } from 'aws-cdk-lib/aws-ecs-patterns';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
-import * as crypto from 'crypto';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Repository } from 'aws-cdk-lib/aws-ecr';
 import { BuildSpec, LinuxBuildImage, Project, Source } from 'aws-cdk-lib/aws-codebuild';
@@ -17,6 +16,7 @@ import { Asset } from 'aws-cdk-lib/aws-s3-assets';
 interface UIProps {
   vpc: Vpc;
   apiUrl: string;
+  deploymentHash: string;
 }
 
 export class UI extends Construct {
@@ -25,7 +25,7 @@ export class UI extends Construct {
   constructor(scope: Construct, id: string, props: UIProps) {
     super(scope, id);
 
-    const { vpc, apiUrl } = props;
+    const { vpc, apiUrl, deploymentHash } = props;
 
     const cluster = new Cluster(this, 'ECSCluster', { vpc });
 
@@ -94,7 +94,7 @@ export class UI extends Construct {
     );
 
     const buildTriggerFunction = new DockerImageFunction(this, 'BuildTriggerLambdaFunction', {
-      code: DockerImageCode.fromImageAsset('./src/utils'),
+      code: DockerImageCode.fromImageAsset('./src/utils/ui-deployment-lambda'),
       timeout: Duration.minutes(15)
     });
 
@@ -110,8 +110,6 @@ export class UI extends Construct {
       resources: ['*'],
     }));
 
-    const randomString = crypto.randomBytes(16).toString('hex');
-
     // Custom resource to trigger the build
     const buildTriggerResource = new CustomResource(this, 'BuildTriggerResource', {
       serviceToken: new Provider(this, 'CustomResourceProvider', {
@@ -119,7 +117,7 @@ export class UI extends Construct {
       }).serviceToken,
       properties: {
         ProjectName: codeBuildProject.projectName,
-        Trigger: randomString
+        Trigger: deploymentHash
       },
     });
 
@@ -136,7 +134,7 @@ export class UI extends Construct {
         logDriver: LogDriver.awsLogs({ streamPrefix: 'UIImageStream' }),
         enableLogging: true,
         environment: {
-          "DEPLOYMENT_TRIGGER": randomString
+          "DEPLOYMENT_TRIGGER": deploymentHash
         },
       },
     });

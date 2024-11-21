@@ -8,9 +8,8 @@ import {
     RestApi,
     LambdaIntegration,
 } from 'aws-cdk-lib/aws-apigateway';
-import { DockerImageCode, DockerImageFunction, Function, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
+import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import { DatabaseCluster } from 'aws-cdk-lib/aws-rds';
-import { ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 
 interface ApiProps {
     vpc: Vpc;
@@ -18,8 +17,7 @@ interface ApiProps {
 }
 
 export class Api extends Construct {
-    public readonly url: string;
-    private readonly apiGateway: RestApi;
+    public readonly apiGateway: RestApi;
     private readonly mainLambda: DockerImageFunction;
 
     constructor(scope: Construct, id: string, props: ApiProps) {
@@ -49,7 +47,7 @@ export class Api extends Construct {
         this.apiGateway = new RestApi(this, 'ApiGateway', {
             restApiName: 'RDS API',
             description: 'API Gateway for RDS Cluster',
-            defaultCorsPreflightOptions: undefined, // We'll handle CORS manually
+            // Removed defaultCorsPreflightOptions
         });
 
         // Integrate the main Lambda with API Gateway
@@ -57,54 +55,16 @@ export class Api extends Construct {
             proxy: true,
         });
 
-        // Add a root resource and method
-        const root = this.apiGateway.root;
-        root.addMethod('ANY', mainIntegration); // Handles all methods via proxy
+        // Add a proxy resource at root level
+        const proxyResource = this.apiGateway.root.addResource('{proxy+}');
+        proxyResource.addMethod('ANY', mainIntegration); // Handles all methods via proxy
 
-        this.url = this.apiGateway.url;
+        // Optionally, add ANY method to the root resource to handle root path requests
+        this.apiGateway.root.addMethod('ANY', mainIntegration);
 
         // Output the API Gateway URL
         new cdk.CfnOutput(this, 'ApiGatewayUrl', {
             value: this.apiGateway.url,
         });
-    }
-
-    public addCorsHandler(origin: string = '*'): void {
-        // 1. Create the CORS Lambda function
-        const corsLambda = new Function(this, 'CorsLambdaFunction', {
-            runtime: Runtime.NODEJS_LATEST, // Choose runtime as per your preference
-            handler: 'index.handler',
-            code: Code.fromAsset('./src/api/cors'), // Directory with your CORS Lambda code
-            environment: {
-                ALLOWED_ORIGIN: origin
-            },
-        });
-
-        // 2. Grant API Gateway permission to invoke the CORS Lambda
-        corsLambda.addPermission('ApiGatewayInvokeCorsLambda', {
-            principal: new ServicePrincipal('apigateway.amazonaws.com'),
-            sourceArn: `${this.apiGateway.arnForExecuteApi('*')}/*/*`,
-        });
-
-        // 3. Integrate the CORS Lambda with API Gateway
-        const corsIntegration = new LambdaIntegration(corsLambda, {
-            proxy: true,
-        });
-
-        // 4. Add OPTIONS method to the root resource
-        this.apiGateway.root.addMethod('OPTIONS', corsIntegration, {
-            methodResponses: [
-                {
-                    statusCode: '200',
-                    responseParameters: {
-                        'method.response.header.Access-Control-Allow-Origin': true,
-                        'method.response.header.Access-Control-Allow-Methods': true,
-                        'method.response.header.Access-Control-Allow-Headers': true,
-                    },
-                },
-            ],
-        });
-
-        this.mainLambda.addEnvironment("ALLOWED_ORIGIN", origin)
     }
 }
