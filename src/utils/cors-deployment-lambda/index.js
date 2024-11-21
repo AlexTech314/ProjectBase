@@ -110,18 +110,17 @@ exports.handler = async (event, context) => {
 
             console.log(`Integration for method ${method}:`, JSON.stringify(integration, null, 2));
 
-            if (integration.type === 'AWS' && integration.uri.includes('lambda:path')) {
+            // Handle both 'AWS' and 'AWS_PROXY' integration types
+            if ((integration.type === 'AWS' || integration.type === 'AWS_PROXY') && integration.uri.includes('lambda:')) {
               console.log(`Integration URI: ${integration.uri}`);
-              const matches = integration.uri.match(/functions\/(arn:[^\/]+)/);
-              if (matches && matches[1]) {
-                const functionArn = matches[1];
-                console.log(`Extracted function ARN: ${functionArn}`);
-                lambdaFunctionArnsSet.add(functionArn);
-              } else {
-                console.error(`Could not extract function ARN from URI: ${integration.uri}`);
-              }
+              // Extract the Lambda function ARN from the integration URI
+              const uriParts = integration.uri.split(':');
+              const functionArnPart = uriParts.slice(uriParts.indexOf('functions') + 1).join(':');
+              const functionArn = functionArnPart.split('/')[0];
+              console.log(`Extracted function ARN: ${functionArn}`);
+              lambdaFunctionArnsSet.add(functionArn);
             } else {
-              console.log(`Integration type is not AWS or does not include lambda:path`);
+              console.log(`Integration type is not AWS or AWS_PROXY or does not include lambda`);
             }
 
             // Add response parameters to method response
