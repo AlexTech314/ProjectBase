@@ -88,5 +88,8 @@ export class ProjectBase extends Construct {
         Trigger: this.deploymentHash, // Ensures the custom resource runs on every deployment
       },
     });
+
+    // **Add the dependency here**
+    corsDeploymentCustomReousrce.node.addDependency(this.ui);
   }
 }
