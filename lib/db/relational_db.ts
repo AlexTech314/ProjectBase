@@ -1,24 +1,39 @@
 import { Construct } from 'constructs';
-import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
-import { BuildEnvironmentVariableType, BuildSpec, LinuxBuildImage, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
-import { CodeBuildAction, GitHubSourceAction, GitHubTrigger } from 'aws-cdk-lib/aws-codepipeline-actions';
-import { Artifact, Pipeline } from 'aws-cdk-lib/aws-codepipeline';
+import {
+    BuildEnvironmentVariableType,
+    BuildSpec,
+    LinuxBuildImage,
+    Project,
+    Source,
+} from 'aws-cdk-lib/aws-codebuild';
 import { SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
-import { AuroraMysqlEngineVersion, ClusterInstance, Credentials, DatabaseCluster, DatabaseClusterEngine, DatabaseSecret } from 'aws-cdk-lib/aws-rds';
-
+import {
+    AuroraMysqlEngineVersion,
+    ClusterInstance,
+    Credentials,
+    DatabaseCluster,
+    DatabaseClusterEngine,
+    DatabaseSecret,
+} from 'aws-cdk-lib/aws-rds';
+import { Asset } from 'aws-cdk-lib/aws-s3-assets';
+import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { Stack } from 'aws-cdk-lib';
 
 interface RelationalDbProps {
-    vpc: Vpc
+    vpc: Vpc;
+    deploymentHash: string;
 }
 
 export class RelationalDb extends Construct {
     public readonly dbCluster: DatabaseCluster;
-    public readonly liquibaseCodeBuild: PipelineProject;
+    public readonly liquibaseCodeBuild: Project;
 
     constructor(scope: Construct, id: string, props: RelationalDbProps) {
         super(scope, id);
 
-        const { vpc } = props;
+        const { vpc, deploymentHash } = props;
 
         const dbCredentialsSecret = new DatabaseSecret(this, 'DBCredentialsSecret', {
             username: 'admin',
@@ -27,75 +42,29 @@ export class RelationalDb extends Construct {
         const dbCluster = new DatabaseCluster(this, 'Database', {
             engine: DatabaseClusterEngine.auroraMysql({ version: AuroraMysqlEngineVersion.VER_3_07_1 }),
             writer: ClusterInstance.serverlessV2('writer', {
-                scaleWithWriter: true
+                scaleWithWriter: true,
             }),
             defaultDatabaseName: 'base',
             credentials: Credentials.fromSecret(dbCredentialsSecret),
             vpcSubnets: {
                 subnetType: SubnetType.PRIVATE_ISOLATED,
             },
-            vpc: vpc
-        })
+            vpc: vpc,
+        });
 
         this.dbCluster = dbCluster;
 
-        // Define the build specification
-        const buildSpec = BuildSpec.fromObject({
-            version: '0.2',
-            phases: {
-                install: {
-                    commands: [
-                        'echo Downloading MySQL JDBC driver',
-                        'mkdir -p /liquibase/classpath',
-                        'curl -L -o /liquibase/classpath/mysql-connector-java.jar https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.28/mysql-connector-java-8.0.28.jar',
-                    ],
-                },
-                build: {
-                    commands: [
-                        'echo Running Liquibase changelog',
-                        'liquibase \
-                          --classpath=/liquibase/classpath/mysql-connector-java.jar \
-                          --changeLogFile=src/db/changeLog.sql \
-                          --url="jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}" \
-                          --username=${DB_USER} \
-                          --password=${DB_PASSWORD} \
-                          --logLevel=FINE \
-                          update',
-                    ],
-                },
-            },
+        // Package the source code as an asset
+        const sourceAsset = new Asset(this, 'SourceAsset', {
+            path: './src/db', // Adjust the path
         });
 
-        // Define the pipeline
-        const pipe = new Pipeline(this, 'MyPipeline');
-
-        pipe.node.addDependency(this.dbCluster)
-
-        // Retrieve GitHub token from Secrets Manager
-        const githubToken = Secret.fromSecretNameV2(
-            this, 'GitHubToken', 'github-token'
-        );
-
-        // Source action for GitHub
-        const sourceOut = new Artifact();
-        const sourceAction = new GitHubSourceAction({
-            actionName: 'GitHub_Source',
-            owner: 'AlexTech314',
-            repo: 'ProjectBase',
-            branch: 'main',  // Replace with the branch you want to use
-            oauthToken: githubToken.secretValue,
-            output: sourceOut,
-            trigger: GitHubTrigger.WEBHOOK,  // Optionally enable webhook for immediate triggers
-        });
-
-        // Add the source stage to the pipeline
-        pipe.addStage({
-            stageName: 'Source',
-            actions: [sourceAction],
-        });
-
-        // Create the CodeBuild project without a source, as it will receive source code from CodePipeline
-        const project = new PipelineProject(this, 'LiquibaseCodeBuildProject', {
+        // Create the CodeBuild project
+        const project = new Project(this, 'LiquibaseCodeBuildProject', {
+            source: Source.s3({
+                bucket: sourceAsset.bucket,
+                path: sourceAsset.s3ObjectKey,
+            }),
             environment: {
                 buildImage: LinuxBuildImage.fromDockerRegistry('liquibase/liquibase'),
             },
@@ -114,26 +83,73 @@ export class RelationalDb extends Construct {
             },
             vpc,
             subnetSelection: { subnetType: SubnetType.PRIVATE_WITH_EGRESS },
-            buildSpec: buildSpec,
+            buildSpec: BuildSpec.fromObject({
+                version: '0.2',
+                phases: {
+                    install: {
+                        commands: [
+                            'echo Downloading MySQL JDBC driver',
+                            'cd $CODEBUILD_SRC_DIR',
+                            'mkdir -p /liquibase/classpath',
+                            'curl -L -o /liquibase/classpath/mysql-connector-java.jar https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.28/mysql-connector-java-8.0.28.jar',
+                        ],
+                    },
+                    build: {
+                        commands: [
+                            'echo Running Liquibase changelog',
+                            'liquibase \
+                            --classpath=/liquibase/classpath/mysql-connector-java.jar \
+                            --changeLogFile=src/db/changeLog.sql \
+                            --url="jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}" \
+                            --username=${DB_USER} \
+                            --password=${DB_PASSWORD} \
+                            --logLevel=FINE \
+                            update',
+                        ],
+                    },
+                },
+            }),
         });
 
-        this.liquibaseCodeBuild = project
+        // Grant permissions to CodeBuild for CloudWatch Logs
+        project.role!.addToPrincipalPolicy(
+            new PolicyStatement({
+                actions: [
+                    'logs:PutLogEvents',
+                    'logs:CreateLogGroup',
+                    'logs:CreateLogStream',
+                ],
+                resources: [
+                    `arn:aws:logs:${Stack.of(this).region}:${Stack.of(this).account}:*`,
+                ],
+            })
+        );
 
-        // Grant CodeBuild permissions to access the artifact bucket
-        pipe.artifactBucket.grantReadWrite(project.role!);
+        this.liquibaseCodeBuild = project;
 
-        // Add the source stage to the pipeline
-        pipe.addStage({
-            stageName: 'Build',
-            actions: [new CodeBuildAction({
-                actionName: 'Liquibase',
-                project: project,
-                input: sourceOut
-            })],
+        // Grant permissions
+        dbCredentialsSecret.grantRead(this.liquibaseCodeBuild.role!);
+        dbCluster.connections.allowDefaultPortFrom(project);
+
+        // Create AwsCustomResource to start the build
+        const startBuild = new AwsCustomResource(this, 'StartLiquibaseBuild', {
+            onUpdate: {
+                service: 'CodeBuild',
+                action: 'startBuild',
+                parameters: {
+                    projectName: this.liquibaseCodeBuild.projectName,
+                },
+                physicalResourceId: PhysicalResourceId.of(`StartBuild-${deploymentHash}`),
+            },
+            policy: AwsCustomResourcePolicy.fromStatements([
+                new iam.PolicyStatement({
+                    actions: ['codebuild:StartBuild'],
+                    resources: [this.liquibaseCodeBuild.projectArn],
+                }),
+            ]),
         });
 
-        dbCredentialsSecret.grantRead(this.liquibaseCodeBuild.role!)
-        dbCluster.connections.allowDefaultPortFrom(project)
+        // Ensure the custom resource runs after the project is created
+        startBuild.node.addDependency(this.liquibaseCodeBuild);
     }
 }
-
