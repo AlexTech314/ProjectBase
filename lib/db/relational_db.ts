@@ -111,6 +111,8 @@ export class RelationalDb extends Construct {
             }),
         });
 
+        project.node.addDependency(dbCluster)
+
         // Grant permissions to CodeBuild for CloudWatch Logs
         project.role!.addToPrincipalPolicy(
             new PolicyStatement({
@@ -129,7 +131,7 @@ export class RelationalDb extends Construct {
 
         // Grant permissions
         dbCredentialsSecret.grantRead(this.liquibaseCodeBuild.role!);
-        dbCluster.connections.allowDefaultPortFrom(project);
+        dbCluster.connections.allowDefaultPortFrom(this.liquibaseCodeBuild);
 
         const buildTriggerFunction = new DockerImageFunction(this, 'BuildTriggerLambdaFunction', {
             code: DockerImageCode.fromImageAsset('./src/utils/ui-deployment-lambda'),
