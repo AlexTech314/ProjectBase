@@ -31,7 +31,7 @@ export class ProjectBase extends Construct {
           Name: secretName,
           SecretString: defaultSecretValue,
         },
-        physicalResourceId: PhysicalResourceId.of(secretName),
+        physicalResourceId: PhysicalResourceId.of(`${secretName}-${this.deploymentHash}-CREATE-SECRET`),
         ignoreErrorCodesMatching: 'ResourceExistsException',
       },
       policy: AwsCustomResourcePolicy.fromStatements([
@@ -49,7 +49,7 @@ export class ProjectBase extends Construct {
         parameters: {
           SecretId: secretName,
         },
-        physicalResourceId: PhysicalResourceId.of(`${secretName}-Describe`),
+        physicalResourceId: PhysicalResourceId.of(`${secretName}-${this.deploymentHash}-DESCRIBE-SECRET`),
       },
       policy: AwsCustomResourcePolicy.fromStatements([
         new PolicyStatement({
@@ -97,7 +97,7 @@ export class ProjectBase extends Construct {
           SecretId: secretArn,
           SecretString: this.ui.url,
         },
-        physicalResourceId: PhysicalResourceId.of(Date.now().toString()), // Use a unique ID to ensure the resource updates
+        physicalResourceId: PhysicalResourceId.of(`${secretName}-${this.deploymentHash}-SYNC-SECRET`), // Use a unique ID to ensure the resource updates
       },
       policy: AwsCustomResourcePolicy.fromStatements([
         new PolicyStatement({
