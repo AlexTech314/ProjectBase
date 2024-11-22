@@ -23,29 +23,8 @@ export class ProjectBase extends Construct {
     const secretName = 'CDK_CORS_SECRET';
     const defaultSecretValue = 'XXXXXXXXXXXXXX';
 
-    // Define the AwsCustomResource to describe the secret
-    const describeSecretResource = new AwsCustomResource(this, 'DescribeSecretResource', {
-      onUpdate: {
-        service: 'SecretsManager',
-        action: 'describeSecret',
-        parameters: {
-          SecretId: secretName,
-        },
-        physicalResourceId: PhysicalResourceId.of(secretName), // Use the secret name as the physical resource ID
-      },
-      policy: AwsCustomResourcePolicy.fromStatements([
-        new PolicyStatement({
-          actions: ['secretsmanager:DescribeSecret'],
-          resources: ['*'],
-        }),
-      ]),
-    });
-
-    // Check if the secret exists
-    const secretExists = describeSecretResource.getResponseField('ARN');
-
-    // Define the AwsCustomResource to create the secret if it doesn't exist
-    const createSecretResource = new AwsCustomResource(this, 'CreateSecretResource', {
+    // AwsCustomResource to create or retrieve the secret
+    const createSecretResource = new AwsCustomResource(this, 'CreateOrRetrieveSecretResource', {
       onCreate: {
         service: 'SecretsManager',
         action: 'createSecret',
@@ -53,20 +32,30 @@ export class ProjectBase extends Construct {
           Name: secretName,
           SecretString: defaultSecretValue,
         },
-        physicalResourceId: PhysicalResourceId.of(secretName), // Use the secret name as the physical resource ID
+        physicalResourceId: PhysicalResourceId.of(secretName),
+        ignoreErrorCodesMatching: 'ResourceExistsException',
+      },
+      onUpdate: {
+        service: 'SecretsManager',
+        action: 'describeSecret',
+        parameters: {
+          SecretId: secretName,
+        },
+        physicalResourceId: PhysicalResourceId.of(secretName),
       },
       policy: AwsCustomResourcePolicy.fromStatements([
         new PolicyStatement({
-          actions: ['secretsmanager:CreateSecret'],
+          actions: [
+            'secretsmanager:CreateSecret',
+            'secretsmanager:DescribeSecret',
+          ],
           resources: ['*'],
         }),
       ]),
     });
 
     // Use a CDK condition to decide whether to create the secret
-    const secretArn = cdk.Token.isUnresolved(secretExists)
-      ? describeSecretResource.getResponseField('ARN')
-      : createSecretResource.getResponseField('ARN');
+    const secretArn = createSecretResource.getResponseField('ARN');
 
     // Output the secret ARN
     new cdk.CfnOutput(this, 'SecretARN', {
