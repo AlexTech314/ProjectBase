@@ -86,6 +86,17 @@ export class UI extends Construct {
 
     // Grant permissions to CodeBuild
     ecrRepo.grantPullPush(codeBuildProject);
+
+    codeBuildProject.addToRolePolicy(
+      new PolicyStatement({
+        actions: [
+          'logs:CreateLogStream',
+          'logs:PutLogEvents',
+        ],
+        resources: [`arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:log-group:/aws/codebuild/*`],
+      })
+    );
+
     codeBuildProject.addToRolePolicy(
       new PolicyStatement({
         actions: ['ecr:GetAuthorizationToken'],
