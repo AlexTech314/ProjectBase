@@ -10,6 +10,7 @@ import {
 } from 'aws-cdk-lib/aws-apigateway';
 import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import { DatabaseCluster } from 'aws-cdk-lib/aws-rds';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 interface ApiProps {
     vpc: Vpc;
@@ -44,6 +45,12 @@ export class Api extends Construct {
 
         // Grant the main Lambda read access to the RDS secret
         dbCluster.secret!.grantRead(this.mainLambda.role!);
+        this.mainLambda.role!.addToPrincipalPolicy(
+            new PolicyStatement({
+                actions: ['secretsmanager:GetSecretValue'],
+                resources: [corsSecretArn], // Replace with the ARN of your secret
+            })
+        );
         // Allow the main Lambda to connect to the RDS cluster on default port 3306
         dbCluster.connections.allowDefaultPortFrom(this.mainLambda, 'Allow Lambda to connect to RDS');
 

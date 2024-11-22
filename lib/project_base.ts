@@ -107,6 +107,9 @@ export class ProjectBase extends Construct {
       ]),
     });
 
+    updateSecretResource.node.addDependency(describeSecretResource)
+    updateSecretResource.node.addDependency(this.ui)
+
     // Create the Lambda function for handling CORS
     const corsDeploymentLambda = new DockerImageFunction(this, 'CorsDeploymentLambda', {
       code: DockerImageCode.fromImageAsset('./src/utils/cors-deployment-lambda'),
