@@ -3,12 +3,10 @@ const mysql = require('mysql2/promise');
 
 let secret;
 let pool;
+let corsOrigin;
 
 exports.handler = async (event) => {
-    const { DB_HOST, DB_PORT, DB_NAME, DB_SECRET_ARN, ALLOWED_ORIGIN } = process.env;
-
-    const origin = event.headers.origin || '*';
-    const isAllowedOrigin = ALLOWED_ORIGIN === '*' || ALLOWED_ORIGIN === origin;
+    const { DB_HOST, DB_PORT, DB_NAME, DB_SECRET_ARN, CORS_SECRET_ARN } = process.env;
 
     // Cache the secret on cold start
     if (!secret) {
@@ -29,6 +27,12 @@ exports.handler = async (event) => {
             connectionLimit: 10, // Adjust based on your needs
             queueLimit: 0,
         });
+    }
+
+    if (!corsOrigin) {
+        const secretsManager = new AWS.SecretsManager();
+        const secretValue = await secretsManager.getSecretValue({ SecretId: CORS_SECRET_ARN }).promise();
+        corsOrigin = JSON.parse(secretValue.SecretString);
     }
 
     let connection;
@@ -54,7 +58,7 @@ exports.handler = async (event) => {
         return {
             statusCode: 500,
             headers: {
-                'Access-Control-Allow-Origin': isAllowedOrigin ? origin : 'null',
+                'Access-Control-Allow-Origin': corsOrigin,
                 'Access-Control-Allow-Methods': '*',
                 'Access-Control-Allow-Headers': '*',
             },

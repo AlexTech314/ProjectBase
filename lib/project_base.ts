@@ -4,7 +4,7 @@ import { RelationalDb } from './db/relational_db';
 import { Api } from './api/api';
 import { UI } from './ui/ui';
 import { CustomResource } from 'aws-cdk-lib';
-import { Provider } from 'aws-cdk-lib/custom-resources';
+import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId, Provider } from 'aws-cdk-lib/custom-resources';
 import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import * as crypto from 'crypto';
 import * as cdk from 'aws-cdk-lib';
@@ -20,6 +20,60 @@ export class ProjectBase extends Construct {
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
+    const secretName = 'CDK_CORS_SECRET';
+    const defaultSecretValue = 'XXXXXXXXXXXXXX';
+
+    // Define the AwsCustomResource to describe the secret
+    const describeSecretResource = new AwsCustomResource(this, 'DescribeSecretResource', {
+      onUpdate: {
+        service: 'SecretsManager',
+        action: 'describeSecret',
+        parameters: {
+          SecretId: secretName,
+        },
+        physicalResourceId: PhysicalResourceId.of(secretName), // Use the secret name as the physical resource ID
+      },
+      policy: AwsCustomResourcePolicy.fromStatements([
+        new PolicyStatement({
+          actions: ['secretsmanager:DescribeSecret'],
+          resources: ['*'],
+        }),
+      ]),
+    });
+
+    // Check if the secret exists
+    const secretExists = describeSecretResource.getResponseField('ARN');
+
+    // Define the AwsCustomResource to create the secret if it doesn't exist
+    const createSecretResource = new AwsCustomResource(this, 'CreateSecretResource', {
+      onCreate: {
+        service: 'SecretsManager',
+        action: 'createSecret',
+        parameters: {
+          Name: secretName,
+          SecretString: defaultSecretValue,
+        },
+        physicalResourceId: PhysicalResourceId.of(secretName), // Use the secret name as the physical resource ID
+      },
+      policy: AwsCustomResourcePolicy.fromStatements([
+        new PolicyStatement({
+          actions: ['secretsmanager:CreateSecret'],
+          resources: ['*'],
+        }),
+      ]),
+    });
+
+    // Use a CDK condition to decide whether to create the secret
+    const secretArn = cdk.Token.isUnresolved(secretExists)
+      ? describeSecretResource.getResponseField('ARN')
+      : createSecretResource.getResponseField('ARN');
+
+    // Output the secret ARN
+    new cdk.CfnOutput(this, 'SecretARN', {
+      value: secretArn,
+      description: 'The ARN of the CDK_CORS_SECRET',
+    });
+
     this.vpc = new VPCBase(this, 'VPC');
 
     this.relationalDb = new RelationalDb(this, 'RelationalDb', {
@@ -29,7 +83,8 @@ export class ProjectBase extends Construct {
     this.api = new Api(this, 'Api', {
       vpc: this.vpc.vpc,
       dbCluster: this.relationalDb.dbCluster,
-      deploymentHash: this.deploymentHash
+      deploymentHash: this.deploymentHash,
+      corsSecretArn: secretArn
     });
 
 
@@ -37,6 +92,25 @@ export class ProjectBase extends Construct {
       vpc: this.vpc.vpc,
       apiUrl: this.api.apiGateway.url,
       deploymentHash: this.deploymentHash,
+    });
+
+    // AwsCustomResource to update the secret
+    const updateSecretResource = new AwsCustomResource(this, 'UpdateSecretResource', {
+      onUpdate: {
+        service: 'SecretsManager',
+        action: 'updateSecret',
+        parameters: {
+          SecretId: secretArn,
+          SecretString: this.ui.url,
+        },
+        physicalResourceId: PhysicalResourceId.of(Date.now().toString()), // Use a unique ID to ensure the resource updates
+      },
+      policy: AwsCustomResourcePolicy.fromStatements([
+        new PolicyStatement({
+          actions: ['secretsmanager:UpdateSecret'],
+          resources: [secretArn],
+        }),
+      ]),
     });
 
     // Create the Lambda function for handling CORS
@@ -66,35 +140,24 @@ export class ProjectBase extends Construct {
       })
     );
 
-    // Permissions for updating Lambda function configurations
-    const lambdaFunctionArns = [this.api.mainLambda.functionArn];
-
-    corsDeploymentLambda.addToRolePolicy(
-      new PolicyStatement({
-        actions: ['lambda:GetFunctionConfiguration', 'lambda:UpdateFunctionConfiguration'],
-        resources: lambdaFunctionArns,
-      })
-    );
-
     // Create a custom resource provider
-    // const corsCustomResourceProvider = new Provider(this, 'CorsCustomResourceProvider', {
-    //   onEventHandler: corsDeploymentLambda,
-    // });
+    const corsCustomResourceProvider = new Provider(this, 'CorsCustomResourceProvider', {
+      onEventHandler: corsDeploymentLambda,
+    });
 
     // Custom resource to handle CORS
-    // const corsDeploymentCustomResource = new CustomResource(this, 'CorsUpdateCustomResource', {
-    //   serviceToken: corsCustomResourceProvider.serviceToken,
-    //   properties: {
-    //     RestApiId: this.api.apiGateway.restApiId,
-    //     AllowedOrigin: this.ui.url,
-    //     StageName: 'prod', // Replace with your actual stage name if different
-    //     LambdaFunctionArns: lambdaFunctionArns,
-    //     Trigger: this.deploymentHash, // Ensures the custom resource runs on every deployment
-    //   },
-    // });
+    const corsDeploymentCustomResource = new CustomResource(this, 'CorsUpdateCustomResource', {
+      serviceToken: corsCustomResourceProvider.serviceToken,
+      properties: {
+        RestApiId: this.api.apiGateway.restApiId,
+        AllowedOrigin: this.ui.url,
+        StageName: 'prod', // Replace with your actual stage name if different
+        Trigger: this.deploymentHash, // Ensures the custom resource runs on every deployment
+      },
+    });
 
-    // // Add the dependency
-    // corsDeploymentCustomResource.node.addDependency(this.ui);
-    // corsDeploymentCustomResource.node.addDependency(this.api);
+    // Add the dependency
+    corsDeploymentCustomResource.node.addDependency(this.ui);
+    corsDeploymentCustomResource.node.addDependency(this.api);
   }
 }

@@ -13,7 +13,6 @@ exports.handler = async (event, context) => {
     const restApiId = event.ResourceProperties.RestApiId;
     const allowedOrigin = event.ResourceProperties.AllowedOrigin;
     const stageName = event.ResourceProperties.StageName || 'prod';
-    const lambdaFunctionArns = event.ResourceProperties.LambdaFunctionArns;
 
     try {
       // Step 1: Get all resources of the API
@@ -182,42 +181,6 @@ exports.handler = async (event, context) => {
         stageName,
         description: 'Deployment for CORS configuration',
       }).promise();
-
-      // Step 4: Update ALLOWED_ORIGIN environment variable in Lambda functions
-      console.log('Lambda Functions to update:', lambdaFunctionArns);
-
-      for (const functionArn of lambdaFunctionArns) {
-        console.log(`Updating environment variable for Lambda function: ${functionArn}`);
-
-        try {
-          // Get current function configuration
-          const functionConfig = await lambda.getFunctionConfiguration({
-            FunctionName: functionArn,
-          }).promise();
-          console.log(`Current function configuration:`, JSON.stringify(functionConfig, null, 2));
-
-          // Update environment variables
-          const newEnv = {
-            ...functionConfig.Environment?.Variables,
-            ALLOWED_ORIGIN: allowedOrigin,
-          };
-
-          console.log(`New environment variables:`, newEnv);
-
-          // Update function configuration
-          await lambda.updateFunctionConfiguration({
-            FunctionName: functionArn,
-            Environment: {
-              Variables: newEnv,
-            },
-          }).promise();
-
-          console.log(`Successfully updated environment variables for ${functionArn}`);
-        } catch (error) {
-          console.error(`Error updating environment variables for ${functionArn}:`, error);
-          throw error;
-        }
-      }
     } catch (error) {
       console.error('Error:', error);
       throw error;

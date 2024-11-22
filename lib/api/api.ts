@@ -15,6 +15,7 @@ interface ApiProps {
     vpc: Vpc;
     dbCluster: DatabaseCluster;
     deploymentHash: string;
+    corsSecretArn: string;
 }
 
 export class Api extends Construct {
@@ -24,7 +25,7 @@ export class Api extends Construct {
     constructor(scope: Construct, id: string, props: ApiProps) {
         super(scope, id);
 
-        const { vpc, dbCluster, deploymentHash } = props;
+        const { vpc, dbCluster, deploymentHash, corsSecretArn } = props;
 
         // Create the main Lambda function using DockerImageFunction
         this.mainLambda = new DockerImageFunction(this, 'ApiLambdaFunction', {
@@ -36,7 +37,8 @@ export class Api extends Construct {
                 DB_PORT: dbCluster.clusterEndpoint.port.toString(),
                 DB_NAME: 'base',
                 DB_SECRET_ARN: dbCluster.secret!.secretFullArn || '',
-                DEPLOYMENT_HASH: deploymentHash
+                DEPLOYMENT_HASH: deploymentHash,
+                CORS_SECRET_ARN: corsSecretArn
             },
         });
 
