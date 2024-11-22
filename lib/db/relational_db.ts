@@ -16,10 +16,11 @@ import {
     DatabaseSecret,
 } from 'aws-cdk-lib/aws-rds';
 import { Asset } from 'aws-cdk-lib/aws-s3-assets';
-import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
+import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId, Provider } from 'aws-cdk-lib/custom-resources';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { Stack } from 'aws-cdk-lib';
+import { CustomResource, Duration, Stack } from 'aws-cdk-lib';
+import { DockerImageFunction, DockerImageCode } from 'aws-cdk-lib/aws-lambda';
 
 interface RelationalDbProps {
     vpc: Vpc;
@@ -131,25 +132,36 @@ export class RelationalDb extends Construct {
         dbCredentialsSecret.grantRead(this.liquibaseCodeBuild.role!);
         dbCluster.connections.allowDefaultPortFrom(project);
 
-        // Create AwsCustomResource to start the build
-        const startBuild = new AwsCustomResource(this, 'StartLiquibaseBuild', {
-            onUpdate: {
-                service: 'CodeBuild',
-                action: 'startBuild',
-                parameters: {
-                    projectName: this.liquibaseCodeBuild.projectName,
-                },
-                physicalResourceId: PhysicalResourceId.of(`StartBuild-${deploymentHash}`),
+        const buildTriggerFunction = new DockerImageFunction(this, 'BuildTriggerLambdaFunction', {
+            code: DockerImageCode.fromImageAsset('./src/utils/ui-deployment-lambda'),
+            timeout: Duration.minutes(15),
+        });
+
+        buildTriggerFunction.addToRolePolicy(
+            new PolicyStatement({
+                actions: [
+                    'codebuild:StartBuild',
+                    'codebuild:BatchGetBuilds',
+                    'logs:GetLogEvents',
+                    'logs:DescribeLogStreams',
+                    'logs:DescribeLogGroups',
+                ],
+                resources: ['*'],
+            })
+        );
+
+        // Custom resource to trigger the build
+        const buildTriggerResource = new CustomResource(this, 'BuildTriggerResource', {
+            serviceToken: new Provider(this, 'CustomResourceProvider', {
+                onEventHandler: buildTriggerFunction,
+            }).serviceToken,
+            properties: {
+                ProjectName: project.projectName,
+                Trigger: deploymentHash,
             },
-            policy: AwsCustomResourcePolicy.fromStatements([
-                new iam.PolicyStatement({
-                    actions: ['codebuild:StartBuild'],
-                    resources: [this.liquibaseCodeBuild.projectArn],
-                }),
-            ]),
         });
 
         // Ensure the custom resource runs after the project is created
-        startBuild.node.addDependency(this.liquibaseCodeBuild);
+        buildTriggerResource.node.addDependency(this.liquibaseCodeBuild);
     }
 }
