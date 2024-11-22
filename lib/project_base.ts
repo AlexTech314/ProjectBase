@@ -24,7 +24,7 @@ export class ProjectBase extends Construct {
     const defaultSecretValue = 'XXXXXXXXXXXXXX';
 
     const createSecretResource = new AwsCustomResource(this, 'CreateSecretResource', {
-      onCreate: {
+      onUpdate: {
         service: 'SecretsManager',
         action: 'createSecret',
         parameters: {
