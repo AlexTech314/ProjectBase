@@ -176,7 +176,7 @@ export class UI extends Construct {
     this.url = `https://${distribution.distributionDomainName}`;
 
     // Cache invalidation using AwsCustomResource
-    new AwsCustomResource(this, 'InvalidateCache', {
+    const invalidationResource = new AwsCustomResource(this, 'InvalidateCache', {
       onUpdate: { // Called during resource creation
         service: 'CloudFront',
         action: 'createInvalidation',
@@ -196,5 +196,7 @@ export class UI extends Construct {
         resources: [`arn:aws:cloudfront::${cdk.Stack.of(this).account}:distribution/${distribution.distributionId}`],
       }),
     });
+
+    invalidationResource.node.addDependency(loadBalancedFargateService)
   }
 }
