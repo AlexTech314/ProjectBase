@@ -32,7 +32,7 @@ exports.handler = async (event) => {
     if (!corsOrigin) {
         const secretsManager = new AWS.SecretsManager();
         const secretValue = await secretsManager.getSecretValue({ SecretId: CORS_SECRET_ARN }).promise();
-        corsOrigin = JSON.parse(secretValue.SecretString);
+        corsOrigin = secretValue.SecretString;
     }
 
     let connection;
