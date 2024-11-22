@@ -77,87 +77,87 @@ export class ProjectBase extends Construct {
       deploymentHash: this.deploymentHash
     });
 
-    this.api = new Api(this, 'Api', {
-      vpc: this.vpc.vpc,
-      dbCluster: this.relationalDb.dbCluster,
-      deploymentHash: this.deploymentHash,
-      corsSecretArn: secretArn
-    });
+    // this.api = new Api(this, 'Api', {
+    //   vpc: this.vpc.vpc,
+    //   dbCluster: this.relationalDb.dbCluster,
+    //   deploymentHash: this.deploymentHash,
+    //   corsSecretArn: secretArn
+    // });
 
 
-    this.ui = new UI(this, 'UI', {
-      vpc: this.vpc.vpc,
-      apiUrl: this.api.apiGateway.url,
-      deploymentHash: this.deploymentHash,
-    });
+    // this.ui = new UI(this, 'UI', {
+    //   vpc: this.vpc.vpc,
+    //   apiUrl: this.api.apiGateway.url,
+    //   deploymentHash: this.deploymentHash,
+    // });
 
-    // AwsCustomResource to update the secret
-    const updateSecretResource = new AwsCustomResource(this, 'UpdateSecretResource', {
-      onUpdate: {
-        service: 'SecretsManager',
-        action: 'updateSecret',
-        parameters: {
-          SecretId: secretArn,
-          SecretString: this.ui.url,
-        },
-        physicalResourceId: PhysicalResourceId.of(`${secretName}-${this.deploymentHash}-SYNC-SECRET`), // Use a unique ID to ensure the resource updates
-      },
-      policy: AwsCustomResourcePolicy.fromStatements([
-        new PolicyStatement({
-          actions: ['secretsmanager:UpdateSecret'],
-          resources: [secretArn],
-        }),
-      ]),
-    });
+    // // AwsCustomResource to update the secret
+    // const updateSecretResource = new AwsCustomResource(this, 'UpdateSecretResource', {
+    //   onUpdate: {
+    //     service: 'SecretsManager',
+    //     action: 'updateSecret',
+    //     parameters: {
+    //       SecretId: secretArn,
+    //       SecretString: this.ui.url,
+    //     },
+    //     physicalResourceId: PhysicalResourceId.of(`${secretName}-${this.deploymentHash}-SYNC-SECRET`), // Use a unique ID to ensure the resource updates
+    //   },
+    //   policy: AwsCustomResourcePolicy.fromStatements([
+    //     new PolicyStatement({
+    //       actions: ['secretsmanager:UpdateSecret'],
+    //       resources: [secretArn],
+    //     }),
+    //   ]),
+    // });
 
-    updateSecretResource.node.addDependency(describeSecretResource)
-    updateSecretResource.node.addDependency(this.ui)
+    // updateSecretResource.node.addDependency(describeSecretResource)
+    // updateSecretResource.node.addDependency(this.ui)
 
-    // Create the Lambda function for handling CORS
-    const corsDeploymentLambda = new DockerImageFunction(this, 'CorsDeploymentLambda', {
-      code: DockerImageCode.fromImageAsset('./src/utils/cors-deployment-lambda'),
-      timeout: cdk.Duration.minutes(15),
-      environment: {
-        DEPLOYMENT_HASH: this.deploymentHash
-      }
-    });
+    // // Create the Lambda function for handling CORS
+    // const corsDeploymentLambda = new DockerImageFunction(this, 'CorsDeploymentLambda', {
+    //   code: DockerImageCode.fromImageAsset('./src/utils/cors-deployment-lambda'),
+    //   timeout: cdk.Duration.minutes(15),
+    //   environment: {
+    //     DEPLOYMENT_HASH: this.deploymentHash
+    //   }
+    // });
 
-    // Add necessary permissions to the Lambda function
+    // // Add necessary permissions to the Lambda function
 
-    // Permissions for API Gateway to get and update resources and integrations
-    corsDeploymentLambda.addToRolePolicy(
-      new PolicyStatement({
-        actions: [
-          'apigateway:GET',
-          'apigateway:PUT',
-          'apigateway:POST',
-          'apigateway:DELETE',
-          'apigateway:PATCH',
-        ],
-        resources: [
-          `arn:aws:apigateway:${cdk.Stack.of(this).region}::/restapis/${this.api.apiGateway.restApiId}/*`,
-        ],
-      })
-    );
+    // // Permissions for API Gateway to get and update resources and integrations
+    // corsDeploymentLambda.addToRolePolicy(
+    //   new PolicyStatement({
+    //     actions: [
+    //       'apigateway:GET',
+    //       'apigateway:PUT',
+    //       'apigateway:POST',
+    //       'apigateway:DELETE',
+    //       'apigateway:PATCH',
+    //     ],
+    //     resources: [
+    //       `arn:aws:apigateway:${cdk.Stack.of(this).region}::/restapis/${this.api.apiGateway.restApiId}/*`,
+    //     ],
+    //   })
+    // );
 
-    // Create a custom resource provider
-    const corsCustomResourceProvider = new Provider(this, 'CorsCustomResourceProvider', {
-      onEventHandler: corsDeploymentLambda,
-    });
+    // // Create a custom resource provider
+    // const corsCustomResourceProvider = new Provider(this, 'CorsCustomResourceProvider', {
+    //   onEventHandler: corsDeploymentLambda,
+    // });
 
-    // Custom resource to handle CORS
-    const corsDeploymentCustomResource = new CustomResource(this, 'CorsUpdateCustomResource', {
-      serviceToken: corsCustomResourceProvider.serviceToken,
-      properties: {
-        RestApiId: this.api.apiGateway.restApiId,
-        AllowedOrigin: this.ui.url,
-        StageName: 'prod', // Replace with your actual stage name if different
-        Trigger: this.deploymentHash, // Ensures the custom resource runs on every deployment
-      },
-    });
+    // // Custom resource to handle CORS
+    // const corsDeploymentCustomResource = new CustomResource(this, 'CorsUpdateCustomResource', {
+    //   serviceToken: corsCustomResourceProvider.serviceToken,
+    //   properties: {
+    //     RestApiId: this.api.apiGateway.restApiId,
+    //     AllowedOrigin: this.ui.url,
+    //     StageName: 'prod', // Replace with your actual stage name if different
+    //     Trigger: this.deploymentHash, // Ensures the custom resource runs on every deployment
+    //   },
+    // });
 
-    // Add the dependency
-    corsDeploymentCustomResource.node.addDependency(this.ui);
-    corsDeploymentCustomResource.node.addDependency(this.api);
+    // // Add the dependency
+    // corsDeploymentCustomResource.node.addDependency(this.ui);
+    // corsDeploymentCustomResource.node.addDependency(this.api);
   }
 }
