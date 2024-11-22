@@ -20,7 +20,7 @@ export class ProjectBase extends Construct {
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
-    const secretName = 'CDK_CORS_SECRET';
+    const secretName = 'CORS_SECRET';
     const defaultSecretValue = 'XXXXXXXXXXXXXX';
 
     const createSecretResource = new AwsCustomResource(this, 'CreateSecretResource', {
