@@ -47,7 +47,7 @@ exports.handler = async (event) => {
         return {
             statusCode: 200,
             headers: {
-                'Access-Control-Allow-Origin': isAllowedOrigin ? origin : 'null',
+                'Access-Control-Allow-Origin': corsOrigin,
                 'Access-Control-Allow-Methods': '*',
                 'Access-Control-Allow-Headers': '*',
             },
