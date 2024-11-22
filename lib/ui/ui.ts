@@ -86,35 +86,23 @@ export class UI extends Construct {
     // Grant permissions to interact with ECR
     ecrRepo.grantPullPush(codeBuildProject);
 
-    codeBuildProject.addToRolePolicy(
+    codeBuildProject.role!.addToPrincipalPolicy(
       new PolicyStatement({
         actions: ['ecr:GetAuthorizationToken'],
         resources: ['*'],
       })
     );
 
-    codeBuildProject.addToRolePolicy(
-      new PolicyStatement({
-        actions: [
-          'logs:CreateLogGroup',
-          'logs:CreateLogStream',
-        ],
-        resources: ['*']
-      })
-    );
-
-
     // Grant permissions to CodeBuild for CloudWatch Logs
-    codeBuildProject.addToRolePolicy(
+    codeBuildProject.role!.addToPrincipalPolicy(
       new PolicyStatement({
         actions: [
           'logs:PutLogEvents',
+          'logs:CreateLogGroup',
+          'logs:CreateLogStream',
         ],
         resources: [
-          // Log group
-          `arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:log-group:/aws/codebuild/*`,
-          // Log streams within the log group
-          `arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:log-group:/aws/codebuild/*:log-stream:*`,
+          `arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:*`,
         ],
       })
     );
@@ -147,6 +135,8 @@ export class UI extends Construct {
         Trigger: deploymentHash,
       },
     });
+
+    buildTriggerResource.node.addDependency(codeBuildProject)
 
     // Fargate service that uses the image from ECR
     const loadBalancedFargateService = new ApplicationLoadBalancedFargateService(this, 'Service', {
