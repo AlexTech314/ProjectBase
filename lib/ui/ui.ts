@@ -37,7 +37,6 @@ export class UI extends Construct {
       path: './src/ui', // Adjust the path
     });
 
-
     // Create a CodeBuild project
     const codeBuildProject = new Project(this, 'UICodeBuildProject', {
       source: Source.s3({
@@ -81,21 +80,11 @@ export class UI extends Construct {
             ],
           },
         },
-      })
+      }),
     });
 
-    // Grant permissions to CodeBuild
+    // Grant permissions to interact with ECR
     ecrRepo.grantPullPush(codeBuildProject);
-
-    codeBuildProject.addToRolePolicy(
-      new PolicyStatement({
-        actions: [
-          'logs:CreateLogStream',
-          'logs:PutLogEvents',
-        ],
-        resources: [`arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:log-group:/aws/codebuild/*`],
-      })
-    );
 
     codeBuildProject.addToRolePolicy(
       new PolicyStatement({
@@ -104,31 +93,49 @@ export class UI extends Construct {
       })
     );
 
+    // Grant permissions to CodeBuild for CloudWatch Logs
+    codeBuildProject.addToRolePolicy(
+      new PolicyStatement({
+        actions: [
+          'logs:CreateLogGroup',
+          'logs:CreateLogStream',
+          'logs:PutLogEvents',
+        ],
+        resources: [
+          // Log group
+          `arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:log-group:/aws/codebuild/*`,
+          // Log streams within the log group
+          `arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:log-group:/aws/codebuild/*:log-stream:*`,
+        ],
+      })
+    );
+
     const buildTriggerFunction = new DockerImageFunction(this, 'BuildTriggerLambdaFunction', {
       code: DockerImageCode.fromImageAsset('./src/utils/ui-deployment-lambda'),
-      timeout: Duration.minutes(15)
+      timeout: Duration.minutes(15),
     });
 
-
-    buildTriggerFunction.addToRolePolicy(new PolicyStatement({
-      actions: [
-        'codebuild:StartBuild',
-        'codebuild:BatchGetBuilds',
-        'logs:GetLogEvents',
-        'logs:DescribeLogStreams',
-        'logs:DescribeLogGroups',
-      ],
-      resources: ['*'],
-    }));
+    buildTriggerFunction.addToRolePolicy(
+      new PolicyStatement({
+        actions: [
+          'codebuild:StartBuild',
+          'codebuild:BatchGetBuilds',
+          'logs:GetLogEvents',
+          'logs:DescribeLogStreams',
+          'logs:DescribeLogGroups',
+        ],
+        resources: ['*'],
+      })
+    );
 
     // Custom resource to trigger the build
     const buildTriggerResource = new CustomResource(this, 'BuildTriggerResource', {
       serviceToken: new Provider(this, 'CustomResourceProvider', {
-        onEventHandler: buildTriggerFunction
+        onEventHandler: buildTriggerFunction,
       }).serviceToken,
       properties: {
         ProjectName: codeBuildProject.projectName,
-        Trigger: deploymentHash
+        Trigger: deploymentHash,
       },
     });
 
@@ -145,7 +152,7 @@ export class UI extends Construct {
         logDriver: LogDriver.awsLogs({ streamPrefix: 'UIImageStream' }),
         enableLogging: true,
         environment: {
-          "DEPLOYMENT_TRIGGER": deploymentHash
+          DEPLOYMENT_TRIGGER: deploymentHash,
         },
       },
     });
@@ -188,7 +195,7 @@ export class UI extends Construct {
 
     // Cache invalidation using AwsCustomResource
     const invalidationResource = new AwsCustomResource(this, 'InvalidateCache', {
-      onUpdate: { // Called during resource creation
+      onUpdate: {
         service: 'CloudFront',
         action: 'createInvalidation',
         parameters: {
@@ -208,6 +215,6 @@ export class UI extends Construct {
       }),
     });
 
-    invalidationResource.node.addDependency(loadBalancedFargateService)
+    invalidationResource.node.addDependency(loadBalancedFargateService);
   }
 }
