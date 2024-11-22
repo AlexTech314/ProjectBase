@@ -59,6 +59,8 @@ export class ProjectBase extends Construct {
       ]),
     });
 
+    describeSecretResource.node.addDependency(createSecretResource)
+
     // Use a CDK condition to decide whether to create the secret
     const secretArn = describeSecretResource.getResponseField('ARN');
 
