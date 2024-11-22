@@ -16,8 +16,7 @@ import {
     DatabaseSecret,
 } from 'aws-cdk-lib/aws-rds';
 import { Asset } from 'aws-cdk-lib/aws-s3-assets';
-import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId, Provider } from 'aws-cdk-lib/custom-resources';
-import * as iam from 'aws-cdk-lib/aws-iam';
+import { Provider } from 'aws-cdk-lib/custom-resources';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { CustomResource, Duration, Stack } from 'aws-cdk-lib';
 import { DockerImageFunction, DockerImageCode } from 'aws-cdk-lib/aws-lambda';
