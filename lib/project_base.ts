@@ -20,7 +20,7 @@ export class ProjectBase extends Construct {
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
-    const secretName = 'CORS_SECRET';
+    const secretName = 'CORS_ALLOWED_ORIGIN';
     const defaultSecretValue = 'XXXXXXXXXXXXXX';
 
     const createSecretResource = new AwsCustomResource(this, 'CreateSecretResource', {
@@ -67,7 +67,7 @@ export class ProjectBase extends Construct {
     // Output the secret ARN
     new cdk.CfnOutput(this, 'SecretARN', {
       value: secretArn,
-      description: 'The ARN of the CDK_CORS_SECRET',
+      description: 'The ARN of the CORS_ALLOWED_ORIGIN',
     });
 
     this.vpc = new VPCBase(this, 'VPC');
