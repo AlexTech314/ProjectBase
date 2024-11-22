@@ -77,24 +77,24 @@ export class ProjectBase extends Construct {
     );
 
     // Create a custom resource provider
-    const corsCustomResourceProvider = new Provider(this, 'CorsCustomResourceProvider', {
-      onEventHandler: corsDeploymentLambda,
-    });
+    // const corsCustomResourceProvider = new Provider(this, 'CorsCustomResourceProvider', {
+    //   onEventHandler: corsDeploymentLambda,
+    // });
 
     // Custom resource to handle CORS
-    const corsDeploymentCustomResource = new CustomResource(this, 'CorsUpdateCustomResource', {
-      serviceToken: corsCustomResourceProvider.serviceToken,
-      properties: {
-        RestApiId: this.api.apiGateway.restApiId,
-        AllowedOrigin: this.ui.url,
-        StageName: 'prod', // Replace with your actual stage name if different
-        LambdaFunctionArns: lambdaFunctionArns,
-        Trigger: this.deploymentHash, // Ensures the custom resource runs on every deployment
-      },
-    });
+    // const corsDeploymentCustomResource = new CustomResource(this, 'CorsUpdateCustomResource', {
+    //   serviceToken: corsCustomResourceProvider.serviceToken,
+    //   properties: {
+    //     RestApiId: this.api.apiGateway.restApiId,
+    //     AllowedOrigin: this.ui.url,
+    //     StageName: 'prod', // Replace with your actual stage name if different
+    //     LambdaFunctionArns: lambdaFunctionArns,
+    //     Trigger: this.deploymentHash, // Ensures the custom resource runs on every deployment
+    //   },
+    // });
 
-    // Add the dependency
-    corsDeploymentCustomResource.node.addDependency(this.ui);
-    corsDeploymentCustomResource.node.addDependency(this.api);
+    // // Add the dependency
+    // corsDeploymentCustomResource.node.addDependency(this.ui);
+    // corsDeploymentCustomResource.node.addDependency(this.api);
   }
 }
