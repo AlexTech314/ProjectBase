@@ -23,8 +23,7 @@ export class ProjectBase extends Construct {
     const secretName = 'CDK_CORS_SECRET';
     const defaultSecretValue = 'XXXXXXXXXXXXXX';
 
-    // AwsCustomResource to create or retrieve the secret
-    const createSecretResource = new AwsCustomResource(this, 'CreateOrRetrieveSecretResource', {
+    const createSecretResource = new AwsCustomResource(this, 'CreateSecretResource', {
       onCreate: {
         service: 'SecretsManager',
         action: 'createSecret',
@@ -35,27 +34,33 @@ export class ProjectBase extends Construct {
         physicalResourceId: PhysicalResourceId.of(secretName),
         ignoreErrorCodesMatching: 'ResourceExistsException',
       },
+      policy: AwsCustomResourcePolicy.fromStatements([
+        new PolicyStatement({
+          actions: ['secretsmanager:CreateSecret'],
+          resources: ['*'],
+        }),
+      ]),
+    });
+
+    const describeSecretResource = new AwsCustomResource(this, 'DescribeSecretResource', {
       onUpdate: {
         service: 'SecretsManager',
         action: 'describeSecret',
         parameters: {
           SecretId: secretName,
         },
-        physicalResourceId: PhysicalResourceId.of(secretName),
+        physicalResourceId: PhysicalResourceId.of(`${secretName}-Describe`),
       },
       policy: AwsCustomResourcePolicy.fromStatements([
         new PolicyStatement({
-          actions: [
-            'secretsmanager:CreateSecret',
-            'secretsmanager:DescribeSecret',
-          ],
+          actions: ['secretsmanager:DescribeSecret'],
           resources: ['*'],
         }),
       ]),
     });
 
     // Use a CDK condition to decide whether to create the secret
-    const secretArn = createSecretResource.getResponseField('ARN');
+    const secretArn = describeSecretResource.getResponseField('ARN');
 
     // Output the secret ARN
     new cdk.CfnOutput(this, 'SecretARN', {
