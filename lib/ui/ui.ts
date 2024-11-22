@@ -93,12 +93,21 @@ export class UI extends Construct {
       })
     );
 
-    // Grant permissions to CodeBuild for CloudWatch Logs
     codeBuildProject.addToRolePolicy(
       new PolicyStatement({
         actions: [
           'logs:CreateLogGroup',
           'logs:CreateLogStream',
+        ],
+        resources: ['*']
+      })
+    );
+
+
+    // Grant permissions to CodeBuild for CloudWatch Logs
+    codeBuildProject.addToRolePolicy(
+      new PolicyStatement({
+        actions: [
           'logs:PutLogEvents',
         ],
         resources: [
