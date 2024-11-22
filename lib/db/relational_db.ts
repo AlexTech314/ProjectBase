@@ -111,8 +111,6 @@ export class RelationalDb extends Construct {
             }),
         });
 
-        project.node.addDependency(dbCluster)
-
         // Grant permissions to CodeBuild for CloudWatch Logs
         project.role!.addToPrincipalPolicy(
             new PolicyStatement({
@@ -163,6 +161,7 @@ export class RelationalDb extends Construct {
         });
 
         // Ensure the custom resource runs after the project is created
+        buildTriggerResource.node.addDependency(this.dbCluster);
         buildTriggerResource.node.addDependency(this.liquibaseCodeBuild);
     }
 }
