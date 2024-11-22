@@ -55,6 +55,7 @@ exports.handler = async (event) => {
         };
     } catch (error) {
         console.error('Database query failed:', error);
+        corsOrigin = null;
         return {
             statusCode: 500,
             headers: {
