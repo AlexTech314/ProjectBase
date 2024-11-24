@@ -12,7 +12,7 @@ const {
 
 const apiGatewayClient = new APIGatewayClient({});
 
-export const handler = async (event, context) => {
+exports.handler = async (event, context) => {
   console.log('Event:', JSON.stringify(event, null, 2));
 
   const physicalResourceId = event.PhysicalResourceId || event.LogicalResourceId;

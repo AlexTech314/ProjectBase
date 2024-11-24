@@ -8,9 +8,10 @@ import {
     RestApi,
     LambdaIntegration,
 } from 'aws-cdk-lib/aws-apigateway';
-import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
+import { DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import { DatabaseCluster } from 'aws-cdk-lib/aws-rds';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { TokenInjectableDockerBuilder } from 'token-injectable-docker-builder'
 
 interface ApiProps {
     vpc: Vpc;
@@ -28,9 +29,13 @@ export class Api extends Construct {
 
         const { vpc, dbCluster, deploymentHash, corsSecretArn } = props;
 
+        const tokenInjectableDockerBuilder = new TokenInjectableDockerBuilder(this, "ApiLambdaBuilder", {
+            path: './src/api/main'
+        })
+
         // Create the main Lambda function using DockerImageFunction
         this.mainLambda = new DockerImageFunction(this, 'ApiLambdaFunction', {
-            code: DockerImageCode.fromImageAsset('./src/api/main'),
+            code: tokenInjectableDockerBuilder.getDockerImageCode(),
             vpc,
             vpcSubnets: { subnetType: SubnetType.PRIVATE_WITH_EGRESS },
             environment: {
@@ -42,6 +47,8 @@ export class Api extends Construct {
                 CORS_SECRET_ARN: corsSecretArn
             },
         });
+
+        this.mainLambda.node.addDependency(tokenInjectableDockerBuilder)
 
         // Grant the main Lambda read access to the RDS secret
         dbCluster.secret!.grantRead(this.mainLambda.role!);

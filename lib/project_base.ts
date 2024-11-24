@@ -3,9 +3,9 @@ import { VPCBase } from './vpc/vpc_base';
 import { RelationalDb } from './db/relational_db';
 import { Api } from './api/api';
 import { UI } from './ui/ui';
-import { CustomResource } from 'aws-cdk-lib';
+import { CustomResource, Duration } from 'aws-cdk-lib';
 import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId, Provider } from 'aws-cdk-lib/custom-resources';
-import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
+import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
 import * as crypto from 'crypto';
 import * as cdk from 'aws-cdk-lib';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
@@ -113,16 +113,13 @@ export class ProjectBase extends Construct {
     updateSecretResource.node.addDependency(describeSecretResource)
     updateSecretResource.node.addDependency(this.ui)
 
-    // Create the Lambda function for handling CORS
-    const corsDeploymentLambda = new DockerImageFunction(this, 'CorsDeploymentLambda', {
-      code: DockerImageCode.fromImageAsset('./src/utils/cors-deployment-lambda'),
-      timeout: cdk.Duration.minutes(15),
-      environment: {
-        DEPLOYMENT_HASH: this.deploymentHash
-      }
+    // Create Node.js Lambda function for isComplete
+    const corsDeploymentLambda = new Function(this, 'CorsDeploymentLambda', {
+      runtime: Runtime.NODEJS_18_X,
+      code: Code.fromAsset('./src/utils/cors-deployment-lambda'),
+      handler: 'index.handler',
+      timeout: Duration.minutes(15),
     });
-
-    // Add necessary permissions to the Lambda function
 
     // Permissions for API Gateway to get and update resources and integrations
     corsDeploymentLambda.addToRolePolicy(

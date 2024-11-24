@@ -19,7 +19,7 @@ import { Asset } from 'aws-cdk-lib/aws-s3-assets';
 import { Provider } from 'aws-cdk-lib/custom-resources';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { CustomResource, Duration, Stack } from 'aws-cdk-lib';
-import { DockerImageFunction, DockerImageCode } from 'aws-cdk-lib/aws-lambda';
+import { Function, Code, Runtime } from 'aws-cdk-lib/aws-lambda';
 
 interface RelationalDbProps {
     vpc: Vpc;
@@ -131,8 +131,11 @@ export class RelationalDb extends Construct {
         dbCredentialsSecret.grantRead(this.liquibaseCodeBuild.role!);
         dbCluster.connections.allowDefaultPortFrom(this.liquibaseCodeBuild);
 
-        const buildTriggerFunction = new DockerImageFunction(this, 'BuildTriggerLambdaFunction', {
-            code: DockerImageCode.fromImageAsset('./src/utils/ui-deployment-lambda'),
+            // Create Node.js Lambda function for isComplete
+        const buildTriggerFunction = new Function(this, 'DbSchemaBuildTrigger', {
+            runtime: Runtime.NODEJS_18_X,
+            code: Code.fromAsset('./src/utils/ui-deployment-lambda'),
+            handler: 'index.handler',
             timeout: Duration.minutes(15),
         });
 

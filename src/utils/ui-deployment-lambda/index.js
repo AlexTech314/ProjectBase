@@ -4,7 +4,7 @@ const { CloudWatchLogsClient, GetLogEventsCommand } = require("@aws-sdk/client-c
 const codebuildClient = new CodeBuildClient({});
 const cloudWatchLogsClient = new CloudWatchLogsClient({});
 
-export const handler = async (event, context) => {
+exports.handler = async (event, context) => {
     console.log('Event:', JSON.stringify(event, null, 2));
 
     // Set the PhysicalResourceId
