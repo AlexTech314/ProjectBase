@@ -35,7 +35,7 @@ export class Api extends Construct {
 
         // Create the main Lambda function using DockerImageFunction
         this.mainLambda = new DockerImageFunction(this, 'ApiLambdaFunction', {
-            code: tokenInjectableDockerBuilder.getDockerImageCode(),
+            code: tokenInjectableDockerBuilder.dockerImageCode,
             vpc,
             vpcSubnets: { subnetType: SubnetType.PRIVATE_WITH_EGRESS },
             environment: {

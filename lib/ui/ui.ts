@@ -39,7 +39,7 @@ export class UI extends Construct {
       cpu: 512,
       assignPublicIp: true,
       taskImageOptions: {
-        image: tokenInjectableDockerBuilder.getContainerImage(),
+        image: tokenInjectableDockerBuilder.containerImage,
         containerPort: 3000,
         logDriver: LogDriver.awsLogs({ streamPrefix: 'UIImageStream' }),
         enableLogging: true,
