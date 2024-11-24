@@ -1,8 +1,11 @@
-const AWS = require('aws-sdk');
+const { CodeBuildClient, StartBuildCommand, BatchGetBuildsCommand } = require("@aws-sdk/client-codebuild");
+const { CloudWatchLogsClient, GetLogEventsCommand } = require("@aws-sdk/client-cloudwatch-logs");
 
-exports.handler = async (event, context) => {
+const codebuildClient = new CodeBuildClient({});
+const cloudWatchLogsClient = new CloudWatchLogsClient({});
+
+export const handler = async (event, context) => {
     console.log('Event:', JSON.stringify(event, null, 2));
-    const codebuild = new AWS.CodeBuild();
 
     // Set the PhysicalResourceId
     let physicalResourceId = event.PhysicalResourceId || event.LogicalResourceId;
@@ -13,18 +16,19 @@ exports.handler = async (event, context) => {
         };
 
         try {
-            const build = await codebuild.startBuild(params).promise();
-            console.log('Started build:', JSON.stringify(build, null, 2));
+            const startBuildCommand = new StartBuildCommand(params);
+            const buildResponse = await codebuildClient.send(startBuildCommand);
+            console.log('Started build:', JSON.stringify(buildResponse, null, 2));
 
-            // Wait for the build to complete
-            const buildId = build.build?.id;
+            const buildId = buildResponse.build?.id;
             console.log('Build ID:', buildId);
 
             if (buildId) {
                 let buildStatus = 'IN_PROGRESS';
                 while (buildStatus === 'IN_PROGRESS') {
-                    await new Promise((r) => setTimeout(r, 5000));
-                    const buildStatusResp = await codebuild.batchGetBuilds({ ids: [buildId] }).promise();
+                    await new Promise((resolve) => setTimeout(resolve, 5000));
+                    const batchGetBuildsCommand = new BatchGetBuildsCommand({ ids: [buildId] });
+                    const buildStatusResp = await codebuildClient.send(batchGetBuildsCommand);
 
                     console.log('Build status response:', JSON.stringify(buildStatusResp, null, 2));
 
@@ -33,31 +37,28 @@ exports.handler = async (event, context) => {
                 }
                 if (buildStatus !== 'SUCCEEDED') {
                     // Log the complete build details
-                    const buildDetails = await codebuild.batchGetBuilds({ ids: [buildId] }).promise();
+                    const batchGetBuildsCommand = new BatchGetBuildsCommand({ ids: [buildId] });
+                    const buildDetails = await codebuildClient.send(batchGetBuildsCommand);
                     console.log('Build details:', JSON.stringify(buildDetails, null, 2));
 
-                    // Extract logs information
                     const logsInfo = buildDetails.builds[0].logs;
                     if (logsInfo && logsInfo.deepLink) {
                         console.log(`Build logs available at: ${logsInfo.deepLink}`);
                     }
 
-                    // Retrieve CloudWatch Logs for the build
                     if (logsInfo && logsInfo.groupName && logsInfo.streamName) {
-                        const cloudwatchlogs = new AWS.CloudWatchLogs();
-                        const logEvents = await cloudwatchlogs.getLogEvents({
+                        const getLogEventsCommand = new GetLogEventsCommand({
                             logGroupName: logsInfo.groupName,
                             logStreamName: logsInfo.streamName,
                             startFromHead: true,
-                        }).promise();
+                        });
 
-                        // Collect log messages as an array
+                        const logEvents = await cloudWatchLogsClient.send(getLogEventsCommand);
+
                         const logMessages = logEvents.events.map(event => event.message);
 
-                        // Get the last 5 messages
                         const lastFiveMessages = logMessages.slice(-5).join('\n');
 
-                        // Include the last 5 log messages in the error
                         throw new Error(`Build failed with status: ${buildStatus}\nLast 5 build logs:\n${lastFiveMessages}`);
                     } else {
                         throw new Error(`Build failed with status: ${buildStatus}, but logs are not available.`);
@@ -69,7 +70,6 @@ exports.handler = async (event, context) => {
         } catch (error) {
             console.error('Error during build:', error);
 
-            // Ensure the PhysicalResourceId is included in the response
             return {
                 PhysicalResourceId: physicalResourceId,
                 Data: {},
@@ -77,7 +77,6 @@ exports.handler = async (event, context) => {
             };
         }
     } else if (event.RequestType === 'Delete') {
-        // No action needed for delete, but ensure PhysicalResourceId remains the same
         console.log('Delete request received. No action required.');
     }
 
