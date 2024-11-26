@@ -20,7 +20,7 @@ export class ProjectBase extends Construct {
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
-    const secretName = 'CORS_ALLOWED_ORIGIN_';
+    const secretName = 'CORS_ALLOWED_ORIGIN';
     const defaultSecretValue = 'XXXXXXXXXXXXXX';
 
     const createSecretResource = new AwsCustomResource(this, 'CreateSecretResource', {
@@ -156,5 +156,6 @@ export class ProjectBase extends Construct {
     // Add the dependency
     corsDeploymentCustomResource.node.addDependency(this.ui);
     corsDeploymentCustomResource.node.addDependency(this.api);
+    corsDeploymentCustomResource.node.addDependency(updateSecretResource)
   }
 }
